@@ -1,5 +1,6 @@
 import sys
 import os
+import subprocess
 import win32api
 import datetime
 import socket
@@ -86,9 +87,8 @@ class Other_function:
         # print("csn_msg: ", csn_msg)
         opcode = [chr(0xFF), chr(0xFE), chr(0x01), chr(0x04), chr(0x05), chr(0x07),
                   chr(0x0C), chr(0x0D), chr(0x0E), chr(0x0F), chr(0x11), chr(0x12),
-                  chr(0x13), chr(0x15), chr(0x16), chr(0x17), chr(0x18), chr(0x19), chr(0x1E)]
-
-        if len(msg) < 44:  # 데이터의 길이가 모두 44이상이므로 44보다 작으면 데이터 길이 오류
+                  chr(0x13), chr(0x15),  chr(0x16), chr(0x17), chr(0x18), chr(0x19), chr(0x1E)]
+        if len(msg) < 44:   #데이터의 길이가 모두 44이상이므로 44보다 작으면 데이터 길이 오류
             nacklist = [False, 0, chr(0x02)]
             return nacklist
         elif (op == chr(0xFF)) and (csn_msg == 'VD' + chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00)):
@@ -101,18 +101,18 @@ class Other_function:
             nacklist = [False, op, chr(0x03)]
             return nacklist
         elif len(msg) == 44:
-            if op in [chr(0x01), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:  # 길이가 44가 아닌 경우들
+            if op in [chr(0x01), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:    #길이가 44가 아닌 경우들
                 nacklist = [False, op, chr(0x05)]
                 return nacklist
             else:
                 nacklist = [True, op, 0]
                 print(nacklist)
                 return nacklist
-        elif len(msg) > 44:  # 길이가 44이상일때
+        elif len(msg) > 43:    #길이가 44이상일때
             if op not in [chr(0x01), chr(0xFE), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:
-                nacklist = [False, op, chr(0x04)]  # 위의 op코드중에 해당 되지 않는다면 무슨 오류라고 할 수 있을까?? 우선 opcode 에러라고 판단함
+                nacklist = [False, op, chr(0x04)]   #위의 op코드중에 해당 되지 않는다면 무슨 오류라고 할 수 있을까?? 우선 opcode 에러라고 판단함
                 return nacklist
-            elif (op in [chr(0x01), chr(0x0F)]) and (len(msg) != 45):  # 길이가 45인 경우들
+            elif (op in [chr(0x01), chr(0x0F)]) and (len(msg) != 45):   #길이가 45인 경우들
                 nacklist = [False, op, chr(0x05)]
                 return nacklist
             elif (op == chr(0xFE)) and (len(msg) > 46):
@@ -124,10 +124,10 @@ class Other_function:
             elif op == chr(0x0E):
                 index = msg[44]
                 data = msg[45:]
-                if index == 1 and (len(msg) != 47):  # index 1의 길이는 47
+                if index == 1 and (len(msg) != 47):    #index 1의 길이는 47
                     nacklist = [False, op, chr(0x05)]
                     return nacklist
-                elif (index in [chr(0x03), chr(0x0D)]):  # index 3의 길이는 46 수집주기의 입력 범위는 14~120
+                elif (index in [chr(0x03), chr(0x0D)]):    #index 3의 길이는 46 수집주기의 입력 범위는 14~120
                     cycle = int(ord(data[0]))
                     if cycle > 120 or cycle < 14:
                         nacklist = [False, op, chr(0x05)]

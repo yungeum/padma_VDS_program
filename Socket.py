@@ -56,6 +56,7 @@ class Socket_function:
 
     def socket_send_msg(self, send_msg):
         self.client_socket.send(send_msg.encode('utf-16'))
+        print("TX OPCode: ", "0x{:02X}".format(ord(send_msg[43])))
         print("TX_msg: [", ", ".join(str(ord(data)) for data in send_msg[44:]), "]")
         # print("TX_msg: [", send_msg, "]")
         # print("TX: [", send_msg.encode('utf-16'), "]")
@@ -178,7 +179,7 @@ class Socket_function:
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
         self.socket_send_msg(send_msg)
 
-    def send_0F_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, index, lane_num, collect_cycle, category_num, acc_speed, calc_speed, use_unexpected):
+    def send_0F_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, index, lane_num, collect_cycle, category_num, acc_speed, calc_speed, max_distance, node_interval, share_interval, outbreak_cycle, use_unexpected):
         point = chr(0x2D)
         opcode = chr(0x0F)
         ack = chr(0x06)
@@ -188,7 +189,7 @@ class Socket_function:
             # 차로 계산 (1 << 차로-1)
             byte_1 = chr(1 << (lane_num - 1))
             byte_2 = chr(0)
-            data = byte_1f + byte_2
+            data = byte_1 + byte_2
         elif index == 3:
             # 수집주기 기본 30, 변경값 60
             byte_1 = chr(collect_cycle)
@@ -218,6 +219,17 @@ class Socket_function:
             data = chr(index)
             # 속도 계산 가능 여부 기본 1(사용)
             byte_1 = chr(calc_speed)
+            data = data + byte_1
+        elif index == 11:
+            data = chr(index)
+            byte_1 = chr(max_distance >> 8)
+            byte_2 = chr(max_distance & 0XFF)
+            byte_3 = chr(node_interval)
+            byte_4 = chr(share_interval)
+            data = data + byte_1 + byte_2 + byte_3 + byte_4
+        elif index == 13:
+            data = chr(index)
+            byte_1 = chr(outbreak_cycle)
             data = data + byte_1
         elif index == 19:
             data = chr(index)

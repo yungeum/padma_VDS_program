@@ -87,10 +87,16 @@ class main_function(QWidget):
         self.connect_time = None
         self.sync_time = None
         self.outbreak_send_Last_time = None
+        self.outbreak_cycle = None
+        self.last_outbreak_status = None
+        self.last_send_outbreak = None
         self.lane_num = None
         self.collect_cycle = None
         self.category_num = None
         self.use_ntraffic = None
+        self.max_distance = None
+        self.node_interval = None
+        self.share_interval = None
         self.use_category_speed = None
         self.use_unexpected = None
         self.individual_traffic_data = None
@@ -154,12 +160,19 @@ class main_function(QWidget):
         self.category_num = [0, 11, 21, 31, 41, 51, 61, 71, 81, 91, 101, 111]
         self.use_ntraffic = 1
         self.use_category_speed = 1
+        self.max_distance = 200  # 최대검지거리
+        self.node_interval = 25  # 셀 간격
+        self.share_interval = 5  # 점유율 간격
+        self.outbreak_cycle = 60
         self.use_unexpected = 1
         self.congestion_criterion = 50
         self.congestion_cycle = 30
         self.zone_criterion = 10
         self.m_log_save = True
-        self.status.get_data(lane=self.lane_num, congestion_criterion=self.congestion_criterion, zone_criterion=self.zone_criterion)
+        self.status.get_data(max_distance=self.max_distance,
+                             lane=self.lane_num,
+                             congestion_criterion=self.congestion_criterion,
+                             node_interval=self.node_interval)
 
     def time_bar_timeout(self):
         now = time.localtime()
