@@ -751,7 +751,7 @@ class main_function(QWidget):
             list = result
             print("???: ", list)
             self.sock.send_nack_res_msg(self.local_ip, self.center_ip, self.controller_type, self.controller_index, list)
-            self.update_TX_Log(\msg_op, [2, list[2]])   # chr(0xFF)아님..
+            self.update_TX_Log(msg_op, [2, list[2]])   # chr(0xFF)아님..
     # endregion
 
     def request_check_timer(self):
