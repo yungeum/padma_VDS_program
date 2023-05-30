@@ -386,16 +386,26 @@ class main_function(QWidget):
                 self.category_num = parameter_list[2]
                 self.use_ntraffic = parameter_list[3]
                 self.use_category_speed = parameter_list[4]
-                self.use_unexpected = parameter_list[5]
+                max_distance_f = parameter_list[5] << 8
+                max_distance_b = parameter_list[6]
+                self.max_distance = max_distance_f + max_distance_b
+                self.node_interval = parameter_list[7]
+                self.share_interval = parameter_list[8]
+                self.outbreak_cycle = parameter_list[9]
+                self.use_unexpected = parameter_list[10]
             else:
                 self.lane_num = 6
                 self.collect_cycle = 30
                 self.category_num = [0, 11, 21, 31, 41, 51, 61, 71, 81, 91, 101, 111]
                 self.use_ntraffic = 1
                 self.use_category_speed = 1
+                self.max_distance = 200
+                self.node_interval = 25
+                self.share_interval = 5
+                self.outbreak_cycle = 60
                 self.use_unexpected = 1
 
-            self.status.get_data(lane=self.lane_num)
+            self.status.get_data(lane=self.lane_num, max_distance=self.max_distance, node_interval=self.node_interval)
 
     def db_connect_btn_click(self):
         try:
@@ -432,15 +442,13 @@ class main_function(QWidget):
                 self.ui.db_connect_btn.setStyleSheet("color:gray;")
 
                 # ui setting
-                temp = self.db.get_congestion_info(host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                                                   password=self.db_pw, db=self.db_name, charset='utf8')
-                # temp = [지정체 기준 값, 간격 기준 값, 지정체 read cycle]
+                temp = self.db.get_congestion_info(host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name, charset='utf8')
+                # temp = [지정체 기준 값, 지정체 read cycle]
                 self.congestion_criterion = int(temp[0])
-                self.zone_criterion = int(temp[1])
-                self.congestion_cycle = int(temp[2])
-                self.status.get_data(congestion_criterion=self.congestion_criterion, zone_criterion=self.zone_criterion)
+                self.congestion_cycle = int(temp[1])
+                self.status.get_data(congestion_criterion=self.congestion_criterion)
                 self.ui.congestion_criterion_value.setText(str(self.congestion_criterion))
-                self.ui.zone_criterion_value.setText(str(self.zone_criterion))
+                self.ui.zone_criterion_value.setText(str(self.node_interval))
                 self.ui.congestion_cycle_value.setText(str(self.congestion_cycle))
                 return True
         except Exception as e:
@@ -502,11 +510,9 @@ class main_function(QWidget):
         temp = self.db.get_congestion_info(host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name, charset='utf8')
         # temp = [지정체 기준 값, 간격 기준 값, 지정체 read cycle]
         self.congestion_criterion = int(temp[0])
-        self.zone_criterion = int(temp[1])
         self.congestion_cycle = int(temp[2])
-        self.status.get_data(congestion_criterion=self.congestion_criterion, zone_criterion=self.zone_criterion)
+        self.status.get_data(congestion_criterion=self.congestion_criterion)
         self.ui.congestion_criterion_value.setText(str(self.congestion_criterion))
-        self.ui.zone_criterion_value.setText(str(self.zone_criterion))
         self.ui.congestion_cycle_value.setText(str(self.congestion_cycle))
     # endregion
 
@@ -523,17 +529,20 @@ class main_function(QWidget):
     # region socket_msg
 
     def read_socket_msg(self):
-        while 1:
-            recv_msg = self.sock.socket_read()
-            if recv_msg == '':
-                # if len(self.read_thread) > 1:
-                # self.read_thread.pop(0)
-                # self.sock.client_socket_close()
-                break
-            else:
-                self.parsing_msg(recv_msg)
-                # print(recv_msg.decode('utf-16'))
-        # self.sock.client_socket_close()
+        try:
+            while 1:
+                recv_msg = self.sock.socket_read()
+                if recv_msg == '':
+                    # if len(self.read_thread) > 1:
+                    # self.read_thread.pop(0)
+                    # self.sock.client_socket_close()
+                    break
+                else:
+                    self.parsing_msg(recv_msg)
+                    # print(recv_msg.decode('utf-16'))
+            # self.sock.client_socket_close()
+        except Exception as e:
+            print("read_socket_msg error: ", e)
         self.client_connect = False
         self.update_client_icon(False)
         print("client close")
@@ -542,29 +551,100 @@ class main_function(QWidget):
     def read_outbreak_data(self):
         # while self.client_connect:
         if self.client_connect:
-            zone_num = 0 # 차선별 구역 수
-            if 200 % self.zone_criterion == 0:
-                zone_num = int(200 / self.zone_criterion)
-            else:
-                zone_num = int(200 / self.zone_criterion) + 1
-            if self.client_connect:
-                sync_time = time.time()
-                zone_data, congestion_list = self.db.get_congestion_data(cycle=self.congestion_cycle, congestion=self.congestion_criterion, zone=self.zone_criterion, sync_time=sync_time, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
-                if congestion_list:
-                    outbreak_time = datetime.now()
-                    self.db.insert_outbreak(congestion_list=congestion_list, input_time=outbreak_time, zone=self.zone_criterion, zone_num=zone_num, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
-                if zone_data:
-                    self.status.get_data(congestion_data=zone_data)
-                # Table read & send
-                outbreakdata = self.db.get_outbreak(lane=self.lane_num, zone_num=zone_num, last_time=self.outbreak_send_Last_time, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
-                self.outbreak_send_Last_time = datetime.now()
-                if outbreakdata:
-                    # print
-                    print("0x19 돌발: ", outbreakdata)
-                    if self.use_unexpected:
-                        location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name, charset='utf8')
-                        self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type, self.controller_index, outbreakdata, location)
-                        self.update_TX_Log(chr(0x19), [0])
+            if self.use_unexpected == 1:
+
+                # --------지정체 계산-----------------------------------------------------------------------------------
+                lane_cell_num = 10  # 디폴트 값 초기화
+                if self.node_interval > 0:
+                    lane_cell_num = self.max_distance / self.node_interval  # 차선별 구역 수
+                if self.client_connect:
+                    sync_time = time.time()
+                    cell_data, congestion_list = self.db.get_congestion_data(max_distance=self.max_distance,
+                                                                             lane_cell_num=lane_cell_num,
+                                                                             total_zone_num=self.cell_num,
+                                                                             cycle=self.congestion_cycle,
+                                                                             congestion=self.congestion_criterion,
+                                                                             node_interval=self.node_interval,
+                                                                             sync_time=sync_time,
+                                                                             host=self.db_ip, port=int(self.db_port),
+                                                                             user=self.db_id, password=self.db_pw,
+                                                                             db=self.db_name)
+                    if congestion_list:
+                        outbreak_time = datetime.now()
+                        self.db.insert_outbreak(congestion_list=congestion_list,
+                                                input_time=outbreak_time,
+                                                node_interval=self.node_interval,
+                                                cell_num=self.cell_num,
+                                                lane_cell_num=lane_cell_num,
+                                                host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                password=self.db_pw, db=self.db_name)
+                    if cell_data:
+                        self.status.get_data(congestion_data=cell_data)
+
+                    # -------DB Table read----------------------------------------------------------------------------------
+                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, cell_num=self.cell_num,
+                                                        cycle=self.outbreak_cycle,
+                                                        host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                        password=self.db_pw, db=self.db_name)
+
+                    # ------outBreak send-----------------------------------------------------------------------------------
+                    if outbreakdata:
+                        # outbreak = [ [시간, 차선, 클래스, 거리, 상하행], [시간, 차선, 클래스, 거리, 상하행], ... ]
+                        outbreak_status = min([data[2] for data in outbreakdata])  # 위험 순위가 제일 낮은 돌발값 (돌발 생성)
+
+                        # print("************************************")
+                        # print("돌발: ", outbreakdata)
+                        # print("현재 제일 높은 위험 순위: ", outbreak_status)
+                        outbreak_temp = []
+
+                        if self.last_outbreak_status is None:  # 최근 돌발 상태가 없으면
+                            # print("현재 진행중인 돌발 없음")
+                            self.last_outbreak_status = outbreak_status  # last_outbreak_status = 생성된 돌발값 (outbreak_status) 업데이트
+
+                        elif outbreak_status < self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 < 최근 돌발 상태)
+                            # print("새로 생성된 돌발 < 최근 돌발 상태")
+                            self.last_outbreak_status = outbreak_status  # last_outbreak_status = 생성된 돌발값 (outbreak_status) 업데이트
+
+                        elif outbreak_status == self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 == 최근 돌발 상태)
+                            # print("새로 생성된 돌발 == 최근 돌발 상태")
+                            pass
+
+                        elif outbreak_status > self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 > 최근 돌발 상태)
+                            # print("새로 생성된 돌발 > 최근 돌발 상태")         # 위험 순위 60초가 지나서 그 다음 위험 순위로 내려감
+                            # print("최근 돌발 60초 초과 ")
+                            self.last_outbreak_status = outbreak_status
+
+                        for i, data in enumerate(outbreakdata):
+                            if data[2] == outbreak_status:  # outbreakdata중에서 클래스가 outbreak_status와 같은 값들만
+                                outbreak_temp.append(data)
+
+                        # print("1. self.last_send_outbreak: ", self.last_send_outbreak)
+
+                        if self.last_send_outbreak is None:
+                            self.last_send_outbreak = outbreak_temp
+                        # print("outbreak_temp:        ", outbreak_temp)
+
+                        for temp in outbreak_temp[:]:
+                            if temp in self.last_send_outbreak:
+                                outbreak_temp.remove(temp)
+
+                        if outbreak_temp:
+                            location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
+                                                                 user=self.db_id, password=self.db_pw, db=self.db_name,
+                                                                 charset='utf8')
+                            self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
+                                                      self.controller_index, outbreak_temp, location)
+                            self.update_TX_Log(chr(0x19), [0])
+                            for i in outbreak_temp:
+                                self.last_send_outbreak.append(i)
+
+                        # print("outbreak_temp_remove: ", outbreak_temp)
+                        # print("2. self.last_send_outbreak: ", self.last_send_outbreak)
+
+                        out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)
+                        for data in self.last_send_outbreak[:]:
+                            if data[0] < out_time:
+                                self.last_send_outbreak.remove(data)
 
     def parsing_msg(self, recv_msg):
         print("---------------------------------------------------------------------------")
@@ -658,7 +738,8 @@ class main_function(QWidget):
                     self.sock.send_0F_res_msg(self.local_ip, self.center_ip, self.controller_type,
                                               self.controller_index, index,
                                               self.lane_num, self.collect_cycle, self.category_num, self.use_ntraffic,
-                                              self.use_category_speed, self.use_unexpected)
+                                              self.use_category_speed, self.max_distance, self.node_interval,
+                                              self.share_interval, self.outbreak_cycle, self.use_unexpected)
                     self.update_TX_Log(chr(0x0F), [1])
                 elif msg_op == chr(0x11):
                     request_time = time.time()
@@ -751,7 +832,7 @@ class main_function(QWidget):
             list = result
             print("???: ", list)
             self.sock.send_nack_res_msg(self.local_ip, self.center_ip, self.controller_type, self.controller_index, list)
-            self.update_TX_Log(\msg_op, [2, list[2]])   # chr(0xFF)아님..
+            self.update_TX_Log(msg_op, [2, list[2]])   # chr(0xFF)아님..
     # endregion
 
     def request_check_timer(self):
@@ -800,8 +881,14 @@ class main_function(QWidget):
             self.category_num = [0, 11, 21, 31, 41, 51, 61, 71, 81, 91, 101, 111]
             self.use_ntraffic = 1
             self.use_category_speed = 1
+            self.max_distance = 200  # 최대검지거리
+            self.node_interval = 25  # 셀 간격
+            self.share_interval = 5  # 점유율 간격
+            self.outbreak_cycle = 60
             self.use_unexpected = 1
             # 이외의 설정값 등 리셋
+        elif op == chr(0x0D):
+            self.ot.win_reboot()
         elif op == chr(0x0E):
             index = int(ord(msg[44]))
             # 차로 지정
@@ -836,6 +923,18 @@ class main_function(QWidget):
             elif index == 9:
                 data = int(ord(msg[45]))
                 self.use_category_speed = data
+            # 최대검지거리, 노드 간격, 점유율 간격
+            elif index == 11:
+                data = msg[45:]
+                max_distance_f = int(ord(data[0])) * 256
+                max_distance_b = int(ord(data[1]))
+                self.max_distance = max_distance_f + max_distance_b
+                self.node_interval = int(ord(data[2]))
+                self.share_interval = int(ord(data[3]))
+            # index 13
+            elif index == 13:
+                data = int(ord(msg[45]))
+                self.outbreak_cycle = data
             # 돌발 사용 여부
             elif index == 19:
                 data = int(ord(msg[45]))
@@ -852,9 +951,10 @@ class main_function(QWidget):
             except Exception as e:
                 return [False, chr(0x18), chr(0x01)]
 
-        parameter_list = [self.lane_num, self.collect_cycle, self.category_num, self.use_ntraffic, self.use_category_speed, self.use_unexpected]
+        share_data = [self.max_distance >> 8, self.max_distance & 0xFF, self.node_interval, self.share_interval]
+        parameter_list = [self.lane_num, self.collect_cycle, self.category_num, self.use_ntraffic, self.use_category_speed, share_data, self.outbreak_cycle, self.use_unexpected]
         self.db.set_paramete_data(parameter_list=parameter_list, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
-        self.status.get_data(lane=self.lane_num)
+        self.status.get_data(lane=self.lane_num, max_distance=self.max_distance, node_interval=self.node_interval)
 
     # region ui update
     def update_server_icon(self, b):
@@ -874,16 +974,28 @@ class main_function(QWidget):
 
     def update_RX_Log(self, OPCODE, list):
         log_list = []
+        MAX_ROWS = 20  # 표출할 최대 행 개수
 
-        date_s = (datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+        date_s = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+
+        # 새로운 행을 추가하기 전에 현재 행의 개수 확인
         numRows = self.ui.rx_table.rowCount()
-        self.ui.rx_table.insertRow(numRows)
+
         # Add text to the row
+        self.ui.rx_table.insertRow(numRows)
         self.ui.rx_table.setItem(numRows, 0, QTableWidgetItem(date_s))
         self.ui.rx_table.setItem(numRows, 1, QTableWidgetItem("0x{:02X}".format(ord(OPCODE))))
+
+        # 표출할 최대 행 개수보다 현재 행 개수가 크다면 가장 위의 행을 제거
+        if numRows >= MAX_ROWS:
+            self.ui.rx_table.removeRow(0)
+            numRows -= 1
+
+        # list에 추가
         log_list.append(date_s)
         log_list.append("0x{:02X}".format(ord(OPCODE)))
         log_list.append("RX")
+
         # list[0] { 0 : None, 1 : ACK, 2 : NACK}
         if list[0] == 1:
             self.ui.rx_table.setItem(numRows, 2, QTableWidgetItem('ACK'))
@@ -920,21 +1032,33 @@ class main_function(QWidget):
             print(log_list)
             self.log.log_save(log_list)
             self.ui.log_status_bar.setText(self.log.log_path())
-            self.db.save_Log_data(msg_list=log_list, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
+            self.db.save_Log_data(msg_list=log_list, host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                  password=self.db_pw, db=self.db_name)
         self.ui.rx_table.scrollToBottom()
 
     def update_TX_Log(self, OPCODE, list):
         log_list = []
+        MAX_ROWS = 20  # 표출할 최대 행 개수
 
         date_s = (datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
+
+        # 새로운 행을 추가하기 전에 현재 행의 개수 확인
         numRows = self.ui.tx_table.rowCount()
+
         self.ui.tx_table.insertRow(numRows)
         # Add text to the row
         self.ui.tx_table.setItem(numRows, 0, QTableWidgetItem(date_s))
         self.ui.tx_table.setItem(numRows, 1, QTableWidgetItem("0x{:02X}".format(ord(OPCODE))))
+
+        # 표출할 최대 행 개수보다 현재 행 개수가 크다면 가장 위의 행을 제거
+        if numRows >= MAX_ROWS:
+            self.ui.tx_table.removeRow(0)
+            numRows -= 1
+
         log_list.append(date_s)
         log_list.append("0x{:02X}".format(ord(OPCODE)))
         log_list.append("TX")
+
         # list[0] { 0 : None, 1 : ACK, 2 : NACK}
         if list[0] == 1:
             self.ui.tx_table.setItem(numRows, 2, QTableWidgetItem('ACK'))
@@ -969,7 +1093,8 @@ class main_function(QWidget):
 
         if self.m_log_save:
             self.log.log_save(log_list)
-            self.db.save_Log_data(msg_list=log_list, host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
+            self.db.save_Log_data(msg_list=log_list, host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                  password=self.db_pw, db=self.db_name)
         self.ui.tx_table.scrollToBottom()
 
     # endregion
