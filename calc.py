@@ -245,7 +245,7 @@ class CALC_function:
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
 
-                sql = "SELECT * FROM traffic_detail WHERE category=2 and time>='" + data_start + "' ORDER BY Zone ASC"
+                sql = "SELECT * FROM traffic_detail WHERE category=2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
                 cur.execute(sql)
                 result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, category]
 

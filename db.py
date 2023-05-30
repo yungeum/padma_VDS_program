@@ -404,7 +404,7 @@ class DB_function:
                 occu = self.get_occupancy_interval_data(lane, host, port, user, password, db, charset)
                 # share_data = [차선별 점유율]
                 share_data = self.calc.Lane_share_data(occu, data_start, cycle, lane, host, port, user, password, db,
-                                                  charset,date_delete)
+                                                       charset, date_delete)
 
                 # 상하행
                 lane_way = self.calc.lane_way(lane)
@@ -455,7 +455,7 @@ class DB_function:
             cur.execute(sql)
             result = cur.fetchall()
             for i in range(lane):
-                ntraffic_data.append(result[i][1])   # result = [lane, Zone, nTraffic, totalVelocity]
+                ntraffic_data.append(result[i][1])   # result = [lane, nTraffic, totalVelocity]
 
             # 초기화 부분
             # mysql
@@ -501,7 +501,8 @@ class DB_function:
         return controllerBox_state_list
 
     # 지정체 데이터
-    def get_congestion_data(self, congestion=50, cycle=30, node_interval=None, sync_time=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def get_congestion_data(self, congestion=50, cycle=30, node_interval=None, sync_time=None, host=None, port=None,
+                            user=None, password=None, db=None, charset='utf8'):
         zone_data = []
         congestion_list = []
         try:
