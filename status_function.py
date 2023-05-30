@@ -21,19 +21,31 @@ class Status_function(QWidget):
         self.congestion_criterion = 50
         self.zone_criterion = 60
         self.zone_num = None
+        self.max_distance = 200
+        self.node_interval = 25
+        self.cell_num = None
         self.congestion_data = None
 
-    def get_data(self, lane=None, congestion_criterion=None, zone_criterion=None, congestion_data=None):
+    def get_data(self, max_distance=None, lane=None, congestion_criterion=None, node_interval=None, congestion_data=None):
+        # 차선
         if lane:
             self.lane = lane
+
+        # 지정체 기준값
         if congestion_criterion:
             self.congestion_criterion = congestion_criterion
-        if zone_criterion:
-            self.zone_criterion = zone_criterion
-            if 200 % zone_criterion == 0:
-                self.zone_num = int(200 / zone_criterion)
-            else:
-                self.zone_num = int(200 / zone_criterion) + 1
+
+        # 최대 검지 거리
+        if max_distance:
+            self.max_distance = max_distance
+            self.cell_num = int(self.max_distance / self.node_interval)
+
+        # 간격
+        if node_interval:
+            self.node_interval = node_interval
+            self.cell_num = int(self.max_distance / node_interval)
+
+        # 셀별 데이터
         if congestion_data:
             self.congestion_data = congestion_data
 
