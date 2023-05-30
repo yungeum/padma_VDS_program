@@ -4,6 +4,7 @@ import time
 import math
 import datetime
 
+car_non_confirm = []
 
 class CALC_function:
     def __init__(self):
@@ -23,7 +24,6 @@ class CALC_function:
                 # category = 0 중 data_start 이후 값
                 # category 0->교통정보수집선. 1-> 점유율 시작선 2-> 점유율 종료선
                 sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
-
                 cur.execute(sql) # 쿼리 실행
                 result = cur.fetchall() # cur.fetchall() -> 이전에 실행한 쿼리의 모든 결과 반환
                 traffic = []
@@ -38,8 +38,8 @@ class CALC_function:
 
                 for data in result:
                     # lane_index -> zone - 1 (traffic[0], speed[0]부터 넣기 위함)
-                    lane_index = data[3] - 1 # 이거 이해 안됨 zone이 자선이라서 그냥 사용하면 되는거 아닌가
-                    velocity = data[2]
+                    lane_index = data[4] - 1 # 이거 이해 안됨 zone이 자선이라서 그냥 사용하면 되는거 아닌가
+                    velocity = data[3]
 
                     traffic[lane_index] += 1     # 차량 갯수 +1
                     speed[lane_index] += velocity  # 차량 속도 합산
@@ -61,7 +61,7 @@ class CALC_function:
         return Lane_traffic_data
 
     # 점유율 계산 lane별
-    def Lane_share_data(self, occu=None, data_start=None, cycle = 30, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def Lane_share_data(self, occu=None, data_start=None, cycle = 30, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8', data_delete=None):
         share_data = []
 
         try:
@@ -70,53 +70,71 @@ class CALC_function:
             else:
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
-                sql_str = "select *from obj_info where ((Zone= 1 and (DistLong BETWEEN '" + str(occu[0][0]) + "' AND '" + str(occu[1][0]) + "'))"
-                for i in range(1, lane):
-                    sql_str += "or (Zone=" + str(i + 1) + " and (DistLong BETWEEN '" + str(occu[0][i]) + "' AND '" + str(occu[1][i]) + "'))"
-                sql_str += ") and time >= '" + data_start + "' order by Zone asc, ID asc, time asc "
-                sql = sql_str
-
-                cur.execute(sql)
+                sql_str = "SELECT * FROM traffic_detail WHERE time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                cur.execute(sql_str)
                 result = cur.fetchall()
-                ttime = [0]  # 차량 데이터 시작점 끝점 저장
-                timegap = []  # 차선별 차량 점유율 합
-                timeoc = []  # 차선별 속도 점유율 %
-                coun = []  # 차선별 차량수
+
+                car_data = []  # 차량 데이터 필터링.
+                share_time = []  # cell별 시간 점유율 총 시간
+                share_time_percent = []  # cell별 시간 점유율 총 시간 / cycle  ==> 점유율 %
+                car_count = []  # cell별 차량수
+
                 for i in range(lane):
-                    timegap.append(0)
-                    timeoc.append(0)
-                    coun.append(0)
+                    share_time.append(0)
+                    share_time_percent.append(0)
+                    car_count.append(0)
 
-                for i in range(0, len(result) - 1):
-                    # result[i][1] = ID / result[i][14] = zone / result[i][3] = DistLong
-                    if result[i][1] != result[i + 1][1] or result[i][14] != result[i + 1][14] or abs(
-                            result[i][3] - result[i + 1][3]) > 3:  # id변경 , zone 변경, 같은id다른 차량 검지(distlong 기준)
-                        ttime.append(i)
-                        ttime.append((i + 1))
-                ttime.append((len(result)-1))
+                result = list(result)
 
-                # 차선별 차량들 데이터 시작점 끝점 확보
-                if len(result) > 1:
-                    for i in range(0, len(ttime), 2):  # 차선별 차량 데이터 시작점 기준으로 계산
-                        for j in range(lane):
-                            if result[ttime[i]][14] % lane == j:
-                                timegap[j] += ((result[ttime[i]][0] - result[ttime[i + 1]][0]).microseconds / 1000000) / cycle  # 차량 점유시간 기준 개별 점유율 계산
-                                coun[j] += 1
+                for i in range(len(car_non_confirm)):
+                    result.append(car_non_confirm[i])
+                car_non_confirm.clear()  # 삭제
+                sorted_result = []
 
-                for j in range(lane):
-                    if coun[j] != 0:
-                        timeoc[j] = round(timegap[j] * 100 / coun[j]) # 차선별 개별 점유율 총합하여 종합 차선별 속도점유율 % 변환
+                sorted_result = sorted(result, key=lambda x: (x[4], x[1], x[0].timestamp()))
+                for i in range(len(sorted_result)):
+                    sorted_result[i] = sorted_result[i] + (None,)  # [i][7] = 정체 check
+                # result[i][1] = ID / result[i][2] = DistLong / result[i][4] = zone / result[i][6] = category
+                for i in range(0, len(sorted_result) - 1):
+                    car_data.append(i)
+                    if sorted_result[i][1] == sorted_result[i + 1][1] and sorted_result[i][4] == sorted_result[i + 1][
+                        4] and abs(sorted_result[i][2] - sorted_result[i + 1][2]) < 10 and sorted_result[i + 1][6] == 2:
+                        car_data.append(i + 1)  # category 1,2 나란히 append
+                        i = i + 1
                     else:
-                        timeoc[j] = 0
+                        if sorted_result[i][0] > data_delete and sorted_result[i][6] != 2:  # car_non_confirm에 들어있는 데이터 중 오랫동안 남아있는 데이터 제거.
+                            if sorted_result[i][7] == 1:  # [i][7] = 정체 check
+                                share_time_percent[sorted_result[i][4]] = 100
+                            sorted_result[i] = sorted_result[i] + (1,)
+                            car_non_confirm.append(sorted_result[i])
 
-                timeoc.append(timeoc[0])
-                del timeoc[0]
+                        # category 가 나란히 들어오지 않은 객체 =  아직 빠져 나가지 않은 차량
+                        # 전역 리스트에 저장 후 POP.
+                        car_data.pop()
 
-                share_data = timeoc
+                if len(sorted_result) > 1:
+                    for i in range(0, len(car_data) - 1, 2):  # 0,2,4 ... 나란히 append 되어 있어서
+                        for j in range(lane):
+                            if (sorted_result[car_data[i]][4] - 1) == j:  # Cell 이 같을 때
+                                endline = sorted_result[car_data[i + 1]][0]  # category = 2
+                                startline = sorted_result[car_data[i]][0]  # category = 1
+                                delta = endline - startline
+                                millseconeds = delta.total_seconds()
+                                share_time[j] += millseconeds  # 점유한 시간 계산 후 timegap[j]에 합. # 차량 점유시간
+                                car_count[j] += 1  # 차량 수
+                for k in range(lane):
+                    if car_count[k] != 0:
+                        share_time_percent[k] = share_time_percent[k] + round(
+                            (share_time[k] / cycle) * 100)  # cell 마다 (차량 점유 시간 )
+                        if share_time_percent[k] > 100:
+                            share_time_percent[k] = 100
+                    else:
+                        share_time_percent[k] = 0
 
+                share_data = share_time_percent  # 리턴 해줄 셀 별 점유율
                 db_connect.close()
         except Exception as e:
-            print("err share_data : ", e)
+                    print("err Lane_share_data : ", e)
         return share_data
 
     # 상/하행
@@ -151,16 +169,14 @@ class CALC_function:
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
                 sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
-
                 cur.execute(sql)
                 result = cur.fetchall()
-
                 for res in result:
                     car_data = [0, 0, 0, 0, 0]
-                    car_data[0] = res[3]                            # Zone
+                    car_data[0] = res[4]                            # Zone
                     car_data[1] = (res[0] - data_count).seconds     # 경과 시간
                     car_data[2] = res[2]                            # 속도
-                    if res[3] <= (lane/2):
+                    if res[4] <= (lane/2):
                         updown = 0
                     else:
                         updown = 1
@@ -192,109 +208,72 @@ class CALC_function:
                 data_start = result[0][1]
                 if data_start is None:
                     data_start = now_time
-                # print('now_time type: ', type(now_time))
-                sql2 = "UPDATE sw_parameter SET value = '"+now_time+"' WHERE param = 'last_time_Cspeed';" # 동기화 시간 저장
-                cur.execute(sql2)
-                db_connect.commit()
 
-                # print('data_start type: ', type(data_start))
                 sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
-                # print(sql)
                 cur.execute(sql)
+                after_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 result = cur.fetchall()
 
                 for i in range(lane):
                     lane_speed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
                     for res in result:
-                        if res[3] == (i + 1): # 차선 일치 확인
+                        if res[4] == (i + 1):  # 차선 일치 확인
                             for j in reversed(range(len(cnum))):
-                                if res[2] >= cnum[j]: # 속도 범위 확인
+                                if res[3] >= cnum[j]:  # 속도 범위 확인
                                     lane_speed[j] += 1
                                     break
-
                     Cspeed_data.append(lane_speed)
 
+                sql2 = "UPDATE sw_parameter SET value = '"+after_time+"' WHERE param = 'last_time_Cspeed';" # 동기화 시간 저장
+                cur.execute(sql2)
+                db_connect.commit()
                 db_connect.close()
         except Exception as e:
             print("err Cspeed_data : ", e)
         return Cspeed_data
 
     # 지정체
-    def congestion_data(self, zone=10, data_start=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def congestion_data(self, node_interval=None, data_start=None,host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # 전체 차선 zone별 평균속도 list [[1차선 1구역 평균속도, 1차선 2구역 평균속도 ..] ...[6차선 1구역 평균속도, 6차선 2구역 평균속도 ..]]
-        lane_zone_list = []
+        velocity_A_cell_list = []
 
         try:
-            if (data_start is None) or (zone is None):
+            if (data_start is None) or (node_interval is None):
                 print('nack')
             else:
                 # now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data_start))
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
 
-                sql = "SELECT * FROM obj_info WHERE time>'" + data_start + "'"
+                sql = "SELECT * FROM traffic_detail WHERE category=2 and time>='" + data_start + "' ORDER BY Zone ASC"
                 cur.execute(sql)
-                result = cur.fetchall()
-                # result
-                # [time, ID, Distlat, Distlong, VrelLat, VrelLong, Velocity, RCS, Prob, ArelLat, ArelLong, Class, Length, Width. zone, lane]
+                result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, category]
 
-                # region 필요한 변수 선언
-                # obj_info 차선별 구분
-                lane_1_data = []
-                lane_2_data = []
-                lane_3_data = []
-                lane_4_data = []
-                lane_5_data = []
-                lane_6_data = []
+                lane_data_list = []
+                #    1번 셀                      2번셀   ...               n번셀
+                # [ [Velocity, ... ,Velocity], [Velocity, ... ,Velocity], ...   ]
+                for i in range(1, 7):  # i는 1부터 cell 총 개수만큼 까지
+                    temp = []  # 각 cell별 데이터 저장할 list
+                    for data in result:
+                        if data[4] == i:  # cell 비교
+                            temp.append(data[3])  # data[3] = Velocity
 
-                # 차선별 zone 개수
-                zone_num = 0
-                if 200 % zone == 0:
-                    zone_num = int(200/zone)
-                else:
-                    zone_num = int(200/zone) + 1
+                    if not temp:
+                        temp.append(0)
+                    lane_data_list.append(temp)
+
+                for lane_data in lane_data_list:
+                    # cell_data = 각 셀에서 검지된 객체의 속도 리스트
+                    # if len(cell_data) > 0:
+                    total_velocity = sum(lane_data)
+                    a_velocity = total_velocity / len(lane_data)
+                    # else:
+                    # a_velocity = 0
+                    velocity_A_cell_list.append(int(a_velocity))
 
                 # endregion
-                for data in result:
-                    # 차선 비교
-                    if data[15] == 1:
-                        # [data[3], data[6]] = [DistLong, Velocity]
-                        lane_1_data.append([data[3], data[6]])
-                    elif data[15] == 2:
-                        lane_2_data.append([data[3], data[6]])
-                    elif data[15] == 3:
-                        lane_3_data.append([data[3], data[6]])
-                    elif data[15] == 4:
-                        lane_4_data.append([data[3], data[6]])
-                    elif data[15] == 5:
-                        lane_5_data.append([data[3], data[6]])
-                    elif data[15] == 6:
-                        lane_6_data.append([data[3], data[6]])
-
-                lane_data = [lane_1_data, lane_2_data, lane_3_data, lane_4_data, lane_5_data, lane_6_data]
-                for lane_num, data in enumerate(lane_data):
-                    # temp = 차선 zone별 평균속도 list
-                    temp = []
-                    temp_num = []
-                    for i in range(zone_num):
-                        temp.append(0)
-                        temp_num.append(0)
-                    for lane_data in data:
-                        for i in range(1, zone_num+1):
-                            # lane_data[0] = 거리 / lane_data[1] = 속도
-                            if lane_data[0] > zone * (zone_num - i): #10 * 1  , 10 * 2
-                                temp[zone_num - i] += lane_data[1] # 구역별 총 속도
-                                temp_num[zone_num - i] += 1        # 구역별 총 갯수
-                                break
-                    for i in range(zone_num):
-                        if temp_num[i] > 1: # 2대 이상
-                            temp[i] = int(temp[i] / temp_num[i])
-
-                    lane_zone_list.append(temp)
-
-                # print("lane_zone_list", lane_zone_list)
 
                 db_connect.close()
         except Exception as e:
             print("err congestion_data : ", e)
-        return lane_zone_list
+        return velocity_A_cell_list
