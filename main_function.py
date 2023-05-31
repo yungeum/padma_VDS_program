@@ -205,7 +205,7 @@ class main_function(QWidget):
         self.ui.db_id_input.setText("root")
         self.ui.db_port_input.setText("0372")
         self.ui.db_pw_input.setText("hbrain0372!")
-        self.ui.db_name_input.setText("hbrain_vds4")
+        self.ui.db_name_input.setText("hbrain_vds")
         # self.ui.db_name_input.setEnabled(False)
 
         self.ui.socket_open_btn.setEnabled(False)
@@ -559,10 +559,7 @@ class main_function(QWidget):
                     lane_cell_num = self.max_distance / self.node_interval  # 차선별 구역 수
                 if self.client_connect:
                     sync_time = time.time()
-                    cell_data, congestion_list = self.db.get_congestion_data(max_distance=self.max_distance,
-                                                                             lane_cell_num=lane_cell_num,
-                                                                             total_zone_num=self.cell_num,
-                                                                             cycle=self.congestion_cycle,
+                    cell_data, congestion_list = self.db.get_congestion_data(cycle=self.congestion_cycle,
                                                                              congestion=self.congestion_criterion,
                                                                              node_interval=self.node_interval,
                                                                              sync_time=sync_time,
@@ -574,7 +571,6 @@ class main_function(QWidget):
                         self.db.insert_outbreak(congestion_list=congestion_list,
                                                 input_time=outbreak_time,
                                                 node_interval=self.node_interval,
-                                                cell_num=self.cell_num,
                                                 lane_cell_num=lane_cell_num,
                                                 host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                 password=self.db_pw, db=self.db_name)
@@ -582,7 +578,7 @@ class main_function(QWidget):
                         self.status.get_data(congestion_data=cell_data)
 
                     # -------DB Table read----------------------------------------------------------------------------------
-                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, cell_num=self.cell_num,
+                    outbreakdata = self.db.get_outbreak(lane=self.lane_num,
                                                         cycle=self.outbreak_cycle,
                                                         host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                         password=self.db_pw, db=self.db_name)
