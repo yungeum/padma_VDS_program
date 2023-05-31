@@ -21,7 +21,7 @@ from other import Other_function
 from log import Log_function
 # statis window
 from status_function import Status_function
-
+last_send_outbreak = []
 # RGB
 # 주황 : rgb(244,143,61)
 # 남색 : rgb(40,43,48)
@@ -114,8 +114,8 @@ class main_function(QWidget):
         self.set_ui()
         self.ui_event()
         # auto start
-        # init_thread = threading.Thread(target=self.auto_initialize, args=(), daemon=True)
-        # init_thread.start()
+        init_thread = threading.Thread(target=self.auto_initialize, args=(), daemon=True)
+        init_thread.start()
 
     def auto_initialize(self):
         # DB Connect Part
@@ -205,7 +205,7 @@ class main_function(QWidget):
         self.ui.db_id_input.setText("root")
         self.ui.db_port_input.setText("0372")
         self.ui.db_pw_input.setText("hbrain0372!")
-        self.ui.db_name_input.setText("hbrain_vds4")
+        self.ui.db_name_input.setText("hbrain_vds")
         # self.ui.db_name_input.setEnabled(False)
 
         self.ui.socket_open_btn.setEnabled(False)
@@ -559,10 +559,7 @@ class main_function(QWidget):
                     lane_cell_num = self.max_distance / self.node_interval  # 차선별 구역 수
                 if self.client_connect:
                     sync_time = time.time()
-                    cell_data, congestion_list = self.db.get_congestion_data(max_distance=self.max_distance,
-                                                                             lane_cell_num=lane_cell_num,
-                                                                             total_zone_num=self.cell_num,
-                                                                             cycle=self.congestion_cycle,
+                    cell_data, congestion_list = self.db.get_congestion_data(cycle=self.congestion_cycle,
                                                                              congestion=self.congestion_criterion,
                                                                              node_interval=self.node_interval,
                                                                              sync_time=sync_time,
@@ -578,73 +575,59 @@ class main_function(QWidget):
                                                 lane_cell_num=lane_cell_num,
                                                 host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                 password=self.db_pw, db=self.db_name)
+                    # print(cell_data)
                     if cell_data:
                         self.status.get_data(congestion_data=cell_data)
 
                     # -------DB Table read----------------------------------------------------------------------------------
-                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, cell_num=self.cell_num,
+                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, cell_num=self.cell_num, sync_time=sync_time,
                                                         cycle=self.outbreak_cycle,
                                                         host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                         password=self.db_pw, db=self.db_name)
 
                     # ------outBreak send-----------------------------------------------------------------------------------
+                    global last_send_outbreak
                     if outbreakdata:
                         # outbreak = [ [시간, 차선, 클래스, 거리, 상하행], [시간, 차선, 클래스, 거리, 상하행], ... ]
-                        outbreak_status = min([data[2] for data in outbreakdata])  # 위험 순위가 제일 낮은 돌발값 (돌발 생성)
+                        last_list = []
+                        if last_send_outbreak is None:
+                            last_send_outbreak.append(outbreakdata)
+                            last_list.append(outbreakdata)
+                        else:
+                            for data in outbreakdata:
+                                duplicate = False  # 중복 여부 플래그 초기화
+                                for l_data in last_send_outbreak:
+                                    if data[1:3] == l_data[1:3]:
+                                        # print("outbreak data: ", data[1:3])
+                                        # print("last data:     ", l_data[1:3])
+                                        if l_data[2] == 1:
+                                            l_data[0] = data[0]
+                                        duplicate = True
+                                        break
+                                if not duplicate:
+                                    last_list.append(data)
+                        out_time = datetime.fromtimestamp(sync_time - 65)
+                        last_send_outbreak.extend(last_list)
+                        print("---------------------------------------------------")
+                        print(out_time)
+                        print("outbreak data:      ", outbreakdata)  # 돌발들.
+                        print("last_send_outbreak: ", last_send_outbreak)  # 보냈던
+                        print("last_list: ", last_list)  # 비교 후 보낼
 
-                        # print("************************************")
-                        # print("돌발: ", outbreakdata)
-                        # print("현재 제일 높은 위험 순위: ", outbreak_status)
-                        outbreak_temp = []
-
-                        if self.last_outbreak_status is None:  # 최근 돌발 상태가 없으면
-                            # print("현재 진행중인 돌발 없음")
-                            self.last_outbreak_status = outbreak_status  # last_outbreak_status = 생성된 돌발값 (outbreak_status) 업데이트
-
-                        elif outbreak_status < self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 < 최근 돌발 상태)
-                            # print("새로 생성된 돌발 < 최근 돌발 상태")
-                            self.last_outbreak_status = outbreak_status  # last_outbreak_status = 생성된 돌발값 (outbreak_status) 업데이트
-
-                        elif outbreak_status == self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 == 최근 돌발 상태)
-                            # print("새로 생성된 돌발 == 최근 돌발 상태")
-                            pass
-
-                        elif outbreak_status > self.last_outbreak_status:  # 위험 순위 비교 (생성된 돌발 > 최근 돌발 상태)
-                            # print("새로 생성된 돌발 > 최근 돌발 상태")         # 위험 순위 60초가 지나서 그 다음 위험 순위로 내려감
-                            # print("최근 돌발 60초 초과 ")
-                            self.last_outbreak_status = outbreak_status
-
-                        for i, data in enumerate(outbreakdata):
-                            if data[2] == outbreak_status:  # outbreakdata중에서 클래스가 outbreak_status와 같은 값들만
-                                outbreak_temp.append(data)
-
-                        # print("1. self.last_send_outbreak: ", self.last_send_outbreak)
-
-                        if self.last_send_outbreak is None:
-                            self.last_send_outbreak = outbreak_temp
-                        # print("outbreak_temp:        ", outbreak_temp)
-
-                        for temp in outbreak_temp[:]:
-                            if temp in self.last_send_outbreak:
-                                outbreak_temp.remove(temp)
-
-                        if outbreak_temp:
+                        if last_list:
+                            # print("돌발: ", outbreak_temp)
                             location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
                                                                  user=self.db_id, password=self.db_pw, db=self.db_name,
                                                                  charset='utf8')
                             self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
-                                                      self.controller_index, outbreak_temp, location)
+                                                      self.controller_index, last_list, location)
                             self.update_TX_Log(chr(0x19), [0])
-                            for i in outbreak_temp:
-                                self.last_send_outbreak.append(i)
+                        last_list.clear()  # last_list 삭제
 
-                        # print("outbreak_temp_remove: ", outbreak_temp)
-                        # print("2. self.last_send_outbreak: ", self.last_send_outbreak)
-
-                        out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)
-                        for data in self.last_send_outbreak[:]:
+                        # 다음꺼 시간으로 삭제됨...
+                        for data in last_send_outbreak[:]:
                             if data[0] < out_time:
-                                self.last_send_outbreak.remove(data)
+                                last_send_outbreak.remove(data)
 
     def parsing_msg(self, recv_msg):
         print("---------------------------------------------------------------------------")
@@ -805,13 +788,7 @@ class main_function(QWidget):
                         self.sock.send_nack_res_msg(self.local_ip, self.center_ip, self.controller_type, self.controller_index, list)
                         self.update_TX_Log(chr(0x18), [2, list[2]])
                 elif msg_op == chr(0x19):
-                    # msg read와 별개의 스레드를 돌면서 돌발 테이블을 계속 확인.
-                    # 확인하다가 걸리면 밑에 코드 사용
-                    # send함수 파라미터로 보낼 데이터 전송해야함 -> db모듈에서 get
-                    if self.use_unexpected == 1:
-                        self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
-                                                  self.controller_index)
-                        self.update_TX_Log(chr(0x19), [1])
+                    print('0x19 response')
                 elif msg_op == chr(0x1E):
                     self.controllerBox_state_list = self.db.get_controllerBox_state_data(host=self.db_ip, port=int(self.db_port), user=self.db_id, password=self.db_pw, db=self.db_name)
                     if self.controllerBox_state_list:
@@ -860,6 +837,9 @@ class main_function(QWidget):
                 #     self.client_connect = False
                 #     self.fe_num = 0
             if self.fe_num == 2:
+                if len(self.sock.client_socket_list) > 0:
+                    self.sock.client_socket_list[0].close()
+                    self.sock.client_socket_list.pop(0)
                 self.client_connect = False
                 self.fe_num = 0
                 self.fe_check = True

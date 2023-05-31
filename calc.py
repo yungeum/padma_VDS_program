@@ -61,7 +61,7 @@ class CALC_function:
         return Lane_traffic_data
 
     # 점유율 계산 lane별
-    def Lane_share_data(self, occu=None, data_start=None, cycle = 30, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8', data_delete=None):
+    def Lane_share_data(self, occu=None, data_start=None, cycle = None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8', data_delete=None):
         share_data = []
 
         try:
@@ -247,7 +247,7 @@ class CALC_function:
 
                 sql = "SELECT * FROM traffic_detail WHERE category=2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
                 cur.execute(sql)
-                result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, category]
+                result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, class, category]
 
                 lane_data_list = []
                 #    1번 셀                      2번셀   ...               n번셀
