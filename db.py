@@ -821,13 +821,13 @@ class DB_function:
         except Exception as e:
             print("error set_congestion_info : ", e)
 
-    def insert_outbreak(self, congestion_list=[], input_time=None, node_interval=None,zone=None, zone_num=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def insert_outbreak(self, congestion_list=[], input_time=None, node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # congestion_list = 지정체 구역 = [차선 (1부터), 구역 (0부터)]
         # input_time = 지정체 발생 시간
         # zone = 구역 간격
         # zone_num = 차선별 구역 수
         try:
-            if congestion_list == '' or zone is None or input_time is None or node_interval is None or zone_num is None:
+            if congestion_list == '' or zone is None or input_time is None or node_interval is None:
                 print("parameter in none")
             else:
                 # db_connect = pymssql.connect(server=host, port=port, user=user, password=password, database=db, charset=charset)
@@ -845,7 +845,7 @@ class DB_function:
                     #         distlat += lane_point[j]
                     # total_distlat = round(distlat + lane_point[congestion_list[i][0]-1]/2, 1)
                     # DistLong
-                    #congestion_list = [차선 , 속도 ]
+                    #congestion_list = [차선 , 속도 ] 25 *  (50보다 작은) + 3
                     total_distlong = round(zone * congestion_list[i][1] + zone/2, 1)
                     sql = "INSERT INTO outbreak VALUES('" + outbreak_time + "', " + str(i) + ", 4, " + str(congestion_list[i][0]) + \
                           ", NULL, " + str(total_distlong) + ", " + str(total_distlong) + ");"

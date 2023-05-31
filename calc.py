@@ -23,7 +23,7 @@ class CALC_function:
 
                 # category = 0 중 data_start 이후 값
                 # category 0->교통정보수집선. 1-> 점유율 시작선 2-> 점유율 종료선
-                sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql) # 쿼리 실행
                 result = cur.fetchall() # cur.fetchall() -> 이전에 실행한 쿼리의 모든 결과 반환
                 traffic = []
@@ -168,7 +168,7 @@ class CALC_function:
                 data_count = datetime.datetime.strptime(data_start, '%Y-%m-%d %H:%M:%S')
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
-                sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 result = cur.fetchall()
                 for res in result:
@@ -209,7 +209,7 @@ class CALC_function:
                 if data_start is None:
                     data_start = now_time
 
-                sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 after_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 result = cur.fetchall()

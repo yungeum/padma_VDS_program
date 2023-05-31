@@ -570,9 +570,8 @@ class main_function(QWidget):
                         outbreak_time = datetime.now()
                         self.db.insert_outbreak(congestion_list=congestion_list,
                                                 input_time=outbreak_time,
+                                                zone=self.lane_num,
                                                 node_interval=self.node_interval,
-                                                cell_num=self.cell_num,
-                                                lane_cell_num=lane_cell_num,
                                                 host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                 password=self.db_pw, db=self.db_name)
                     # print(cell_data)
@@ -580,7 +579,7 @@ class main_function(QWidget):
                         self.status.get_data(congestion_data=cell_data)
 
                     # -------DB Table read----------------------------------------------------------------------------------
-                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, cell_num=self.cell_num, sync_time=sync_time,
+                    outbreakdata = self.db.get_outbreak(lane=self.lane_num, sync_time=sync_time,
                                                         cycle=self.outbreak_cycle,
                                                         host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                         password=self.db_pw, db=self.db_name)
