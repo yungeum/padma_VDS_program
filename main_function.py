@@ -21,7 +21,7 @@ from other import Other_function
 from log import Log_function
 # statis window
 from status_function import Status_function
-last_send_outbreak = []
+
 # RGB
 # 주황 : rgb(244,143,61)
 # 남색 : rgb(40,43,48)
@@ -89,7 +89,7 @@ class main_function(QWidget):
         self.outbreak_send_Last_time = None
         self.outbreak_cycle = None
         self.last_outbreak_status = None
-        self.last_send_outbreak = None
+        self.last_send_outbreak = []
         self.lane_num = None
         self.collect_cycle = None
         self.category_num = None
@@ -167,7 +167,7 @@ class main_function(QWidget):
         self.use_unexpected = 1
         self.congestion_criterion = 50
         self.congestion_cycle = 30
-        self.zone_criterion = 10
+        self.zone_criterion = 25
         self.m_log_save = True
         self.status.get_data(max_distance=self.max_distance,
                              lane=self.lane_num,
@@ -223,7 +223,7 @@ class main_function(QWidget):
         # self.ui.status_btn.setStyleSheet("background-color:rgb(244,143,61); color: gray;")
 
         # congestion
-        self.ui.congestion_criterion_edit.setValue(40)
+        self.ui.congestion_criterion_edit.setValue(50)
         self.ui.congestion_criterion_edit.setSingleStep(5)
         self.ui.congestion_criterion_edit.setMinimum(10)
         self.ui.congestion_criterion_edit.setMaximum(100)
@@ -559,7 +559,7 @@ class main_function(QWidget):
                     lane_cell_num = self.max_distance / self.node_interval  # 차선별 구역 수
                 if self.client_connect:
                     sync_time = time.time()
-                    cell_data, congestion_list = self.db.get_congestion_data(cycle=self.congestion_cycle,
+                    lane_data, congestion_list = self.db.get_congestion_data(cycle=self.congestion_cycle,
                                                                              congestion=self.congestion_criterion,
                                                                              node_interval=self.node_interval,
                                                                              sync_time=sync_time,
@@ -570,13 +570,13 @@ class main_function(QWidget):
                         outbreak_time = datetime.now()
                         self.db.insert_outbreak(congestion_list=congestion_list,
                                                 input_time=outbreak_time,
-                                                zone=self.lane_num,
+                                                zone=self.zone_criterion,
                                                 node_interval=self.node_interval,
                                                 host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                 password=self.db_pw, db=self.db_name)
                     # print(cell_data)
-                    if cell_data:
-                        self.status.get_data(congestion_data=cell_data)
+                    if lane_data:
+                        self.status.get_data(congestion_data=lane_data)
 
                     # -------DB Table read----------------------------------------------------------------------------------
                     outbreakdata = self.db.get_outbreak(lane=self.lane_num, sync_time=sync_time,
@@ -585,17 +585,17 @@ class main_function(QWidget):
                                                         password=self.db_pw, db=self.db_name)
 
                     # ------outBreak send-----------------------------------------------------------------------------------
-                    global last_send_outbreak
+
                     if outbreakdata:
                         # outbreak = [ [시간, 차선, 클래스, 거리, 상하행], [시간, 차선, 클래스, 거리, 상하행], ... ]
                         last_list = []
-                        if last_send_outbreak is None:
-                            last_send_outbreak.append(outbreakdata)
+                        if self.last_send_outbreak is None:
+                            self.last_send_outbreak.append(outbreakdata)
                             last_list.append(outbreakdata)
                         else:
                             for data in outbreakdata:
                                 duplicate = False  # 중복 여부 플래그 초기화
-                                for l_data in last_send_outbreak:
+                                for l_data in self.last_send_outbreak:
                                     if data[1:3] == l_data[1:3]:
                                         # print("outbreak data: ", data[1:3])
                                         # print("last data:     ", l_data[1:3])
@@ -606,11 +606,11 @@ class main_function(QWidget):
                                 if not duplicate:
                                     last_list.append(data)
                         out_time = datetime.fromtimestamp(sync_time - 65)
-                        last_send_outbreak.extend(last_list)
+                        self.last_send_outbreak.extend(last_list)
                         print("---------------------------------------------------")
                         print(out_time)
                         print("outbreak data:      ", outbreakdata)  # 돌발들.
-                        print("last_send_outbreak: ", last_send_outbreak)  # 보냈던
+                        print("last_send_outbreak: ", self.last_send_outbreak)  # 보냈던
                         print("last_list: ", last_list)  # 비교 후 보낼
 
                         if last_list:
@@ -624,9 +624,9 @@ class main_function(QWidget):
                         last_list.clear()  # last_list 삭제
 
                         # 다음꺼 시간으로 삭제됨...
-                        for data in last_send_outbreak[:]:
+                        for data in self.last_send_outbreak[:]:
                             if data[0] < out_time:
-                                last_send_outbreak.remove(data)
+                                self.last_send_outbreak.remove(data)
 
     def parsing_msg(self, recv_msg):
         print("---------------------------------------------------------------------------")

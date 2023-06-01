@@ -514,12 +514,20 @@ class DB_function:
                 zone_data = self.calc.congestion_data(node_interval=node_interval, data_start=data_start, host=host, port=port, user=user,
                                                       password=password, db=db, charset=charset)
                 if zone_data:
-                    for i, a_velocity in enumerate(zone_data):   # zone_data = 평균 속도 .
-                        if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
-                            # i+1 = 차선. j = 구역
-                            congestion_list.append([i+1, a_velocity])
+                    for i, lane_data in enumerate(zone_data):
+                        for j, a_velocity in enumerate(lane_data):
+                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
+                                # i+1 = 차선. j = 구역
+                                congestion_list.append([i + 1, j])
                 else:
                     print("nack")
+                # if zone_data:
+                #     for i, a_velocity in enumerate(zone_data):   # zone_data = 평균 속도 .
+                #         if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
+                #             # i+1 = 차선. j = 구역
+                #             congestion_list.append([i+1, a_velocity])
+                # else:
+                #     print("nack")
 
                 # print("차선별 데이터/ ", zone_data)
                 # print("지정체 데이터/ ", congestion_list)

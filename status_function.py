@@ -56,6 +56,8 @@ class Status_function(QWidget):
         self.draw_congestion(qp, self.node_interval, self.congestion_data, self.congestion_criterion, self.max_distance)
         qp.end()
         self.update()
+        # zone_criterion = node_interval
+        # congestion_criterion = 지정체 속도 제한
 
     def draw_other(self, qp, lane, node_interval, max_distance):
         qp.setFont(QFont('Consolas', 12))
@@ -84,10 +86,11 @@ class Status_function(QWidget):
 
     def draw_congestion(self, qp, node_interval, congestion_data, congestion_criterion, max_distance):
         # 비율
-        ratio = 800 / max_distance
-        lane_cell_num = int(max_distance / node_interval)
+        ratio = 800 / max_distance # ratio = 4
+        lane_cell_num = int(max_distance / node_interval)   # 8개
         try:
-            cell_data = [congestion_data[i:i + lane_cell_num] for i in range(0, len(congestion_data), lane_cell_num)]
+            #cell_data = [congestion_data[i:i + lane_cell_num] for i in range(0, len(congestion_data), lane_cell_num)]  #8개씩 넘겨서 라인마다 비교.
+            cell_data = congestion_data
             for i, lane_data in enumerate(cell_data):
                 for j in range(len(lane_data)):
                     qp.drawText(40 + 50 * i, 825 - node_interval * j * ratio, str(lane_data[j]))
@@ -104,6 +107,7 @@ class Status_function(QWidget):
                         elif congestion_criterion <= lane_data[j]:
                             qp.fillRect(35 + 50 * i, 25, 50, 800 - (node_interval * ratio) * j,
                                         QBrush(QColor(Qt.green), Qt.BDiagPattern))
+
                     else:
                         if lane_data[j] == 0:
                             qp.fillRect(35 + 50 * i, 825 - (node_interval * ratio) * (j + 1), 50, node_interval * 4,
@@ -117,6 +121,8 @@ class Status_function(QWidget):
                         elif congestion_criterion <= lane_data[j]:
                             qp.fillRect(35 + 50 * i, 825 - (node_interval * ratio) * (j + 1), 50, node_interval * 4,
                                         QBrush(QColor(Qt.green), Qt.BDiagPattern))
+
+
         except Exception as e:
             pass
             # print("DATA Not ready yet")
