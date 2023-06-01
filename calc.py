@@ -168,7 +168,7 @@ class CALC_function:
                 data_count = datetime.datetime.strptime(data_start, '%Y-%m-%d %H:%M:%S')
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
-                sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 result = cur.fetchall()
                 for res in result:
@@ -209,7 +209,7 @@ class CALC_function:
                 if data_start is None:
                     data_start = now_time
 
-                sql = "SELECT * FROM traffic_detail WHERE category = 0 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 after_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 result = cur.fetchall()
@@ -245,7 +245,7 @@ class CALC_function:
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
 
-                sql = "SELECT * FROM traffic_detail WHERE category=2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
                 cur.execute(sql)
                 result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, category]
 

@@ -827,7 +827,7 @@ class DB_function:
         # zone = 구역 간격
         # zone_num = 차선별 구역 수
         try:
-            if congestion_list == '' or zone is None or input_time is None or node_interval is None or zone_num is None:
+            if congestion_list == '' or zone is None or input_time is None or node_interval is None:
                 print("parameter in none")
             else:
                 # db_connect = pymssql.connect(server=host, port=port, user=user, password=password, database=db, charset=charset)

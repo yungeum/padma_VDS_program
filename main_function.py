@@ -570,8 +570,8 @@ class main_function(QWidget):
                         outbreak_time = datetime.now()
                         self.db.insert_outbreak(congestion_list=congestion_list,
                                                 input_time=outbreak_time,
+                                                zone = self.lane_num,
                                                 node_interval=self.node_interval,
-                                                lane_cell_num=lane_cell_num,
                                                 host=self.db_ip, port=int(self.db_port), user=self.db_id,
                                                 password=self.db_pw, db=self.db_name)
                     if cell_data:
