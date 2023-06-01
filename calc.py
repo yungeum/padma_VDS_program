@@ -4,11 +4,12 @@ import time
 import math
 import datetime
 
-car_non_confirm = []
+
 
 class CALC_function:
     def __init__(self):
         super().__init__()
+        self.car_non_confirm = []
 
     #차선 별 교통량 및 평균 속도  catchline[[교통량][속도]]
     def Lane_traffic_data(self, data_start=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
@@ -61,7 +62,7 @@ class CALC_function:
         return Lane_traffic_data
 
     # 점유율 계산 lane별
-    def Lane_share_data(self, occu=None, data_start=None, cycle = 30, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8', data_delete=None):
+    def Lane_share_data(self, occu=None, data_start=None, cycle = None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8', data_delete=None):
         share_data = []
 
         try:
@@ -86,9 +87,9 @@ class CALC_function:
 
                 result = list(result)
 
-                for i in range(len(car_non_confirm)):
-                    result.append(car_non_confirm[i])
-                car_non_confirm.clear()  # 삭제
+                for i in range(len(self.car_non_confirm)):
+                    result.append(self.car_non_confirm[i])
+                self.car_non_confirm.clear()  # 삭제
                 sorted_result = []
 
                 sorted_result = sorted(result, key=lambda x: (x[4], x[1], x[0].timestamp()))
@@ -106,7 +107,7 @@ class CALC_function:
                             if sorted_result[i][7] == 1:  # [i][7] = 정체 check
                                 share_time_percent[sorted_result[i][4]] = 100
                             sorted_result[i] = sorted_result[i] + (1,)
-                            car_non_confirm.append(sorted_result[i])
+                            self.car_non_confirm.append(sorted_result[i])
 
                         # category 가 나란히 들어오지 않은 객체 =  아직 빠져 나가지 않은 차량
                         # 전역 리스트에 저장 후 POP.
@@ -175,7 +176,7 @@ class CALC_function:
                     car_data = [0, 0, 0, 0, 0]
                     car_data[0] = res[4]                            # Zone
                     car_data[1] = (res[0] - data_count).seconds     # 경과 시간
-                    car_data[2] = res[2]                            # 속도
+                    car_data[2] = res[3]                            # 속도
                     if res[4] <= (lane/2):
                         updown = 0
                     else:
@@ -247,33 +248,86 @@ class CALC_function:
 
                 sql = "SELECT * FROM traffic_detail WHERE category = 2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
                 cur.execute(sql)
-                result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, category]
+                result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, class, category]
 
                 lane_data_list = []
-                #    1번 셀                      2번셀   ...               n번셀
-                # [ [Velocity, ... ,Velocity], [Velocity, ... ,Velocity], ...   ]
-                for i in range(1, 7):  # i는 1부터 cell 총 개수만큼 까지
-                    temp = []  # 각 cell별 데이터 저장할 list
-                    for data in result:
-                        if data[4] == i:  # cell 비교
-                            temp.append(data[3])  # data[3] = Velocity
 
-                    if not temp:
+                lane_1_data = []
+                lane_2_data = []
+                lane_3_data = []
+                lane_4_data = []
+                lane_5_data = []
+                lane_6_data = []
+
+                zone_num = 0
+                zone = 25
+                if 200 % zone == 0:
+                    zone_num = int(200 / zone)
+                else:
+                    zone_num = int(200 / zone) + 1
+
+                for data in result:
+                    # 차선 비교
+                    if data[4] == 1:
+                        # [data[2], data[3]] = [DistLong, Velocity]
+                        lane_1_data.append([data[2], data[3]])
+                    elif data[4] == 2:
+                        lane_2_data.append([data[2], data[3]])
+                    elif data[4] == 3:
+                        lane_3_data.append([data[2], data[3]])
+                    elif data[4] == 4:
+                        lane_4_data.append([data[2], data[3]])
+                    elif data[4] == 5:
+                        lane_5_data.append([data[2], data[3]])
+                    elif data[4] == 6:
+                        lane_6_data.append([data[2], data[3]])
+
+                lane_data = [lane_1_data, lane_2_data, lane_3_data, lane_4_data, lane_5_data, lane_6_data]
+
+                for lane_num, data in enumerate(lane_data):
+                    # temp = 차선 zone별 평균속도 list
+                    temp = []
+                    temp_num = []
+                    for i in range(zone_num):
                         temp.append(0)
+                        temp_num.append(0)
+                    for lane_data in data:
+                        for i in range(1, zone_num + 1):
+                            # lane_data[0] = 거리 / lane_data[1] = 속도
+                            if lane_data[0] > zone * (zone_num - i):
+                                temp[zone_num - i] += lane_data[1]  # 구역별 총 속도
+                                temp_num[zone_num - i] += 1  # 구역별 총 갯수
+                                break
+                    for i in range(zone_num):
+                        if temp_num[i] > 1:  # 2대 이상
+                            temp[i] = int(temp[i] / temp_num[i])
+
                     lane_data_list.append(temp)
-
-                for lane_data in lane_data_list:
-                    # cell_data = 각 셀에서 검지된 객체의 속도 리스트
-                    # if len(cell_data) > 0:
-                    total_velocity = sum(lane_data)
-                    a_velocity = total_velocity / len(lane_data)
-                    # else:
-                    # a_velocity = 0
-                    velocity_A_cell_list.append(int(a_velocity))
-
-                # endregion
+                #
+                # #    1번 셀                      2번셀   ...               n번셀
+                # # [ [Velocity, ... ,Velocity], [Velocity, ... ,Velocity], ...   ]
+                # for i in range(1, 7):  # i는 1부터 cell 총 개수만큼 까지
+                #     temp = []  # 각 cell별 데이터 저장할 list
+                #     for data in result:
+                #         if data[4] == i:  # cell 비교
+                #             temp.append(data[3])  # data[3] = Velocity
+                #
+                #     if not temp:
+                #         temp.append(0)
+                #     lane_data_list.append(temp)
+                #
+                # for lane_data in lane_data_list:
+                #     # cell_data = 각 셀에서 검지된 객체의 속도 리스트
+                #     # if len(cell_data) > 0:
+                #     total_velocity = sum(lane_data)
+                #     a_velocity = total_velocity / len(lane_data)
+                #     # else:
+                #     # a_velocity = 0
+                #     velocity_A_cell_list.append(int(a_velocity))
+                #
+                # # endregion
 
                 db_connect.close()
         except Exception as e:
             print("err congestion_data : ", e)
-        return velocity_A_cell_list
+        return lane_data_list

@@ -383,7 +383,7 @@ class DB_function:
         return version_list
 
     # 교통량 데이터
-    def get_traffic_data(self, cycle=30, sync_time=None, lane=6, max_distance=None,node_interval=None, share_interval=None, host=None, port=None, user=None, password=None,
+    def get_traffic_data(self, cycle=None, sync_time=None, lane=6, max_distance=None,node_interval=None, share_interval=None, host=None, port=None, user=None, password=None,
                          db=None, charset='utf8'):
         traffic_data = []
 
@@ -422,7 +422,7 @@ class DB_function:
         return traffic_data
 
     # 개별 차량 데이터
-    def get_individual_traffic_data(self, cycle=30, sync_time=None, lane=6, host=None, port=None, user=None,
+    def get_individual_traffic_data(self, cycle=None, sync_time=None, lane=6, host=None, port=None, user=None,
                                     password=None, db=None, charset='utf8'):
         individual_traffic_data = []
 
@@ -501,7 +501,7 @@ class DB_function:
         return controllerBox_state_list
 
     # 지정체 데이터
-    def get_congestion_data(self, congestion=50, cycle=30, node_interval=None, sync_time=None, host=None, port=None,
+    def get_congestion_data(self, congestion=None, cycle=None, node_interval=None, sync_time=None, host=None, port=None,
                             user=None, password=None, db=None, charset='utf8'):
         zone_data = []
         congestion_list = []
@@ -514,12 +514,20 @@ class DB_function:
                 zone_data = self.calc.congestion_data(node_interval=node_interval, data_start=data_start, host=host, port=port, user=user,
                                                       password=password, db=db, charset=charset)
                 if zone_data:
-                    for i, a_velocity in enumerate(zone_data):
-                        if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
-                            # i+1 = 차선. j = 구역
-                            congestion_list.append([i+1, a_velocity])
+                    for i, lane_data in enumerate(zone_data):
+                        for j, a_velocity in enumerate(lane_data):
+                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
+                                # i+1 = 차선. j = 구역
+                                congestion_list.append([i + 1, j])
                 else:
                     print("nack")
+                # if zone_data:
+                #     for i, a_velocity in enumerate(zone_data):   # zone_data = 평균 속도 .
+                #         if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
+                #             # i+1 = 차선. j = 구역
+                #             congestion_list.append([i+1, a_velocity])
+                # else:
+                #     print("nack")
 
                 # print("차선별 데이터/ ", zone_data)
                 # print("지정체 데이터/ ", congestion_list)
@@ -821,7 +829,7 @@ class DB_function:
         except Exception as e:
             print("error set_congestion_info : ", e)
 
-    def insert_outbreak(self, congestion_list=[], input_time=None, node_interval=None,zone=None, zone_num=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def insert_outbreak(self, congestion_list=[], input_time=None, node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # congestion_list = 지정체 구역 = [차선 (1부터), 구역 (0부터)]
         # input_time = 지정체 발생 시간
         # zone = 구역 간격
@@ -845,6 +853,7 @@ class DB_function:
                     #         distlat += lane_point[j]
                     # total_distlat = round(distlat + lane_point[congestion_list[i][0]-1]/2, 1)
                     # DistLong
+                    #congestion_list = [차선 , 속도 ] 25 *  (50보다 작은) + 3
                     total_distlong = round(zone * congestion_list[i][1] + zone/2, 1)
                     sql = "INSERT INTO outbreak VALUES('" + outbreak_time + "', " + str(i) + ", 4, " + str(congestion_list[i][0]) + \
                           ", NULL, " + str(total_distlong) + ", " + str(total_distlong) + ");"

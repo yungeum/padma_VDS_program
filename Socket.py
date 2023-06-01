@@ -36,7 +36,7 @@ class Socket_function:
     def client_accept(self):
         c_s, addr = self.server_socket.accept()
         self.client_socket_list.append(c_s)
-        if len(self.client_socket_list) > 1:
+        if len(self.client_socket_list) > 2:
             # self.client_socket_close()
             self.client_socket_list[0].close()
             self.client_socket_list.pop(0)
