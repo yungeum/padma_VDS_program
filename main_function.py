@@ -65,9 +65,9 @@ class main_function(QWidget):
         self.request_timer.start(5000)
         self.request_timer.timeout.connect(self.request_check_timer)
 
-        self.outbreak_timer = QTimer()
-        self.outbreak_timer.start(1000)
-        self.outbreak_timer.timeout.connect(self.read_outbreak_data)
+        # self.outbreak_timer = QTimer()
+        # self.outbreak_timer.start(1000)
+        # self.outbreak_timer.timeout.connect(self.read_outbreak_data)
 
         # S/W value
         self.local_ip = None
@@ -114,8 +114,8 @@ class main_function(QWidget):
         self.set_ui()
         self.ui_event()
         # auto start
-        init_thread = threading.Thread(target=self.auto_initialize, args=(), daemon=True)
-        init_thread.start()
+        #init_thread = threading.Thread(target=self.auto_initialize, args=(), daemon=True)
+        #init_thread.start()
 
     def auto_initialize(self):
         # DB Connect Part
@@ -550,8 +550,8 @@ class main_function(QWidget):
     # 돌발
     def read_outbreak_data(self):
         # while self.client_connect:
-        if self.client_connect:
-            if self.use_unexpected == 1:
+        if self.client_connect:                     #client와 연결되어 있고
+            if self.use_unexpected == 1:            #돌발을 사용할 때 실행
 
                 # --------지정체 계산-----------------------------------------------------------------------------------
                 lane_cell_num = 10  # 디폴트 값 초기화

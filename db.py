@@ -393,11 +393,13 @@ class DB_function:
             else:
                 temp = time.localtime(sync_time - cycle)
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
+                temp2 = time.localtime(sync_time)
+                data_end = time.strftime("%Y-%m-%d %H:%M:%S", temp2)
                 date_delete = datetime.fromtimestamp(sync_time - 120)  # 점유율에서 오래된 데이터(120초 전) 제거
 
                 # 교통량 및 속도
                 # Lane_traffic_data = [[차선별 교통량], [차선별 평균속도]]
-                Lane_traffic_data = self.calc.Lane_traffic_data(data_start, lane, host, port, user, password, db, charset)
+                Lane_traffic_data = self.calc.Lane_traffic_data(data_start, data_end, lane, host, port, user, password, db, charset)
 
                 # 점유율
                 # occu = [차선별 점유율 Min][차선별 점유율 Max]
@@ -432,9 +434,11 @@ class DB_function:
             else:
                 temp = time.localtime(sync_time - cycle)
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
+                temp2 = time.localtime(sync_time)
+                data_end = time.strftime("%Y-%m-%d %H:%M:%S", temp2)
 
                 # 개별 차량 데이터
-                individual_traffic_data = self.calc.Individual_car_data(data_start, lane, host, port, user, password, db, charset)
+                individual_traffic_data = self.calc.Individual_car_data(data_start, data_end, lane, host, port, user, password, db, charset)
 
         except Exception as e:
             print("err get_individual_traffic_data : ", e)

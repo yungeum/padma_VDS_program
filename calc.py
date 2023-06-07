@@ -12,7 +12,7 @@ class CALC_function:
         self.car_non_confirm = []
 
     #차선 별 교통량 및 평균 속도  catchline[[교통량][속도]]
-    def Lane_traffic_data(self, data_start=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def Lane_traffic_data(self, data_start=None, data_end=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         Lane_traffic_data = []
 
         try:
@@ -24,7 +24,7 @@ class CALC_function:
 
                 # category = 0 중 data_start 이후 값
                 # category 0->교통정보수집선. 1-> 점유율 시작선 2-> 점유율 종료선
-                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' and time <='" + data_end + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql) # 쿼리 실행
                 result = cur.fetchall() # cur.fetchall() -> 이전에 실행한 쿼리의 모든 결과 반환
                 traffic = []
@@ -159,7 +159,7 @@ class CALC_function:
         return lane_way
 
     # 개별 차량 데이터
-    def Individual_car_data(self, data_start=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def Individual_car_data(self, data_start=None, data_end=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         Icar_data = []
 
         try:
@@ -169,7 +169,7 @@ class CALC_function:
                 data_count = datetime.datetime.strptime(data_start, '%Y-%m-%d %H:%M:%S')
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
-                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' and time <='" + data_end + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 result = cur.fetchall()
                 for res in result:
