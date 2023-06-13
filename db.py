@@ -525,14 +525,6 @@ class DB_function:
                                 congestion_list.append([i + 1, j])
                 else:
                     print("nack")
-                # if zone_data:
-                #     for i, a_velocity in enumerate(zone_data):   # zone_data = 평균 속도 .
-                #         if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
-                #             # i+1 = 차선. j = 구역
-                #             congestion_list.append([i+1, a_velocity])
-                # else:
-                #     print("nack")
-
                 # print("차선별 데이터/ ", zone_data)
                 # print("지정체 데이터/ ", congestion_list)
         except Exception as e:
@@ -561,7 +553,7 @@ class DB_function:
                     lane_point.append(float(data[0]))
                 # endregion
 
-                temp = time.time() - cycle
+                temp = time.time() - 1
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(temp))
 
                 sql = "SELECT * FROM outbreak WHERE time>='" + data_start + "' GROUP BY Class,ZONE ORDER BY time ASC, class ASC, idx ASC;"

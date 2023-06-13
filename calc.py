@@ -259,12 +259,8 @@ class CALC_function:
                 lane_5_data = []
                 lane_6_data = []
 
-                zone_num = 0
                 zone = 25
-                if 200 % zone == 0:
-                    zone_num = int(200 / zone)
-                else:
-                    zone_num = int(200 / zone) + 1
+                zone_num = int(200 / zone)  # 나눴을 때 딱 맞게 떨어지지 않으면 날려버리기로 했으니까 굳이 +1 할 필요가 없음
 
                 for data in result:
                     # 차선 비교
@@ -303,29 +299,6 @@ class CALC_function:
                             temp[i] = int(temp[i] / temp_num[i])
 
                     lane_data_list.append(temp)
-                #
-                # #    1번 셀                      2번셀   ...               n번셀
-                # # [ [Velocity, ... ,Velocity], [Velocity, ... ,Velocity], ...   ]
-                # for i in range(1, 7):  # i는 1부터 cell 총 개수만큼 까지
-                #     temp = []  # 각 cell별 데이터 저장할 list
-                #     for data in result:
-                #         if data[4] == i:  # cell 비교
-                #             temp.append(data[3])  # data[3] = Velocity
-                #
-                #     if not temp:
-                #         temp.append(0)
-                #     lane_data_list.append(temp)
-                #
-                # for lane_data in lane_data_list:
-                #     # cell_data = 각 셀에서 검지된 객체의 속도 리스트
-                #     # if len(cell_data) > 0:
-                #     total_velocity = sum(lane_data)
-                #     a_velocity = total_velocity / len(lane_data)
-                #     # else:
-                #     # a_velocity = 0
-                #     velocity_A_cell_list.append(int(a_velocity))
-                #
-                # # endregion
 
                 db_connect.close()
         except Exception as e:
