@@ -10,6 +10,7 @@ class CALC_function:
     def __init__(self):
         super().__init__()
         self.car_non_confirm = []
+        self.last_data_time = None
 
     #차선 별 교통량 및 평균 속도  catchline[[교통량][속도]]
     def Lane_traffic_data(self, data_start=None, data_end=None, lane=6, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
@@ -24,38 +25,40 @@ class CALC_function:
 
                 # category = 0 중 data_start 이후 값
                 # category 0->교통정보수집선. 1-> 점유율 시작선 2-> 점유율 종료선
-                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' and time <='" + data_end + "' order by Zone asc, ID asc, time asc;"
+                sql = "SELECT * FROM traffic_detail WHERE category = 1 and time >='" + data_start + "' and time <='" + data_end + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql) # 쿼리 실행
                 result = cur.fetchall() # cur.fetchall() -> 이전에 실행한 쿼리의 모든 결과 반환
-                traffic = []
-                speed = []
+                if len(result) == 0:
+                    Lane_traffic_data = []
+                else:
+                    traffic = []
+                    speed = []
 
-                # 차선 수 만큼 0값 추가
-                # traffic = [0,0,0, ... ,0,0,0]
-                # speed = [0,0,0, ... ,0,0,0]
-                for i in range(lane):
-                    traffic.append(0)
-                    speed.append(0)
+                    # 차선 수 만큼 0값 추가
+                    # traffic = [0,0,0, ... ,0,0,0]
+                    # speed = [0,0,0, ... ,0,0,0]
+                    for i in range(lane):
+                        traffic.append(0)
+                        speed.append(0)
 
-                for data in result:
-                    # lane_index -> zone - 1 (traffic[0], speed[0]부터 넣기 위함)
-                    lane_index = data[4] - 1 # 이거 이해 안됨 zone이 자선이라서 그냥 사용하면 되는거 아닌가
-                    velocity = data[3]
+                    for data in result:
+                        # lane_index -> zone - 1 (traffic[0], speed[0]부터 넣기 위함)
+                        lane_index = int(data[4] / 8)
+                        velocity = data[3]
 
-                    traffic[lane_index] += 1     # 차량 갯수 +1
-                    speed[lane_index] += velocity  # 차량 속도 합산
+                        traffic[lane_index] += 1  # 차량 갯수 +1
+                        speed[lane_index] += velocity  # 차량 속도 합산
 
-                # 속도 종합 값을 차량수로 나눈 평균
-                for i in range(lane):
-                    if traffic[i] != 0:
-                        speed[i] = round((speed[i]/traffic[i]))
-                    else:
-                        speed[i] = 0
+                    # 속도 종합 값을 차량수로 나눈 평균
+                    for i in range(lane):
+                        if traffic[i] != 0:
+                            speed[i] = round((speed[i] / traffic[i]))
+                        else:
+                            speed[i] = 0
 
-                # Lane_traffic_data = [[차선별 교통량], [차선별 평균속도]]
-                Lane_traffic_data.append(traffic)
-                Lane_traffic_data.append(speed)
-
+                    # Lane_traffic_data = [[차선별 교통량], [차선별 평균속도]]
+                    Lane_traffic_data.append(traffic)
+                    Lane_traffic_data.append(speed)
                 db_connect.close()
         except Exception as e:
             print("err Lane_traffic_data : ", e)
@@ -209,21 +212,22 @@ class CALC_function:
                 data_start = result[0][1]
                 if data_start is None:
                     data_start = now_time
-
                 sql = "SELECT * FROM traffic_detail WHERE category = 2 and time >='" + data_start + "' order by Zone asc, ID asc, time asc;"
                 cur.execute(sql)
                 after_time = time.strftime("%Y-%m-%d %H:%M:%S")
                 result = cur.fetchall()
-
-                for i in range(lane):
-                    lane_speed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-                    for res in result:
-                        if res[4] == (i + 1):  # 차선 일치 확인
-                            for j in reversed(range(len(cnum))):
-                                if res[3] >= cnum[j]:  # 속도 범위 확인
-                                    lane_speed[j] += 1
-                                    break
-                    Cspeed_data.append(lane_speed)
+                if len(result) == 0:
+                    Cspeed_data = []
+                else:
+                    for i in range(lane):
+                        lane_speed = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                        for res in result:
+                            if res[4] == (i + 1):  # 차선 일치 확인
+                                for j in reversed(range(len(cnum))):
+                                    if res[3] >= cnum[j]:  # 속도 범위 확인
+                                        lane_speed[j] += 1
+                                        break
+                        Cspeed_data.append(lane_speed)
 
                 sql2 = "UPDATE sw_parameter SET value = '"+after_time+"' WHERE param = 'last_time_Cspeed';" # 동기화 시간 저장
                 cur.execute(sql2)
@@ -234,19 +238,18 @@ class CALC_function:
         return Cspeed_data
 
     # 지정체
-    def congestion_data(self, node_interval=None, data_start=None,host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def congestion_data(self, data_start=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # 전체 차선 zone별 평균속도 list [[1차선 1구역 평균속도, 1차선 2구역 평균속도 ..] ...[6차선 1구역 평균속도, 6차선 2구역 평균속도 ..]]
         velocity_A_cell_list = []
 
         try:
-            if (data_start is None) or (node_interval is None):
+            if data_start is None:
                 print('nack')
             else:
-                # now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(data_start))
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
                 cur = db_connect.cursor()
 
-                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time>='" + data_start + "' ORDER BY Zone ASC" #여기서 zone 은 lane
+                sql = "SELECT * FROM traffic_detail WHERE category = 2 and time>='" + data_start + "' ORDER BY Zone ASC"  # 여기서 zone 은 lane category = 3 셀을 지나가는 순간 수정필요 0907
                 cur.execute(sql)
                 result = cur.fetchall()  # [time, ID, DistLong, Velocity, Zone, class, category]
 
@@ -264,18 +267,18 @@ class CALC_function:
 
                 for data in result:
                     # 차선 비교
-                    if data[4] == 1:
+                    if data[4] >= 0 and data[4] <= 7:
                         # [data[2], data[3]] = [DistLong, Velocity]
                         lane_1_data.append([data[2], data[3]])
-                    elif data[4] == 2:
+                    elif data[4] >= 8 and data[4] <= 15:
                         lane_2_data.append([data[2], data[3]])
-                    elif data[4] == 3:
+                    elif data[4] >= 16 and data[4] <= 23:
                         lane_3_data.append([data[2], data[3]])
-                    elif data[4] == 4:
+                    elif data[4] >= 24 and data[4] <= 31:
                         lane_4_data.append([data[2], data[3]])
-                    elif data[4] == 5:
+                    elif data[4] >= 32 and data[4] <= 39:
                         lane_5_data.append([data[2], data[3]])
-                    elif data[4] == 6:
+                    elif data[4] >= 40 and data[4] <= 47:
                         lane_6_data.append([data[2], data[3]])
 
                 lane_data = [lane_1_data, lane_2_data, lane_3_data, lane_4_data, lane_5_data, lane_6_data]
@@ -299,8 +302,35 @@ class CALC_function:
                             temp[i] = int(temp[i] / temp_num[i])
 
                     lane_data_list.append(temp)
-
                 db_connect.close()
         except Exception as e:
             print("err congestion_data : ", e)
         return lane_data_list
+
+    # 정차
+    def outbreak_data(self, data_start=None, now_time=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+        try:
+            if data_start is None:
+                print('nack')
+            else:
+                db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset)
+                cur = db_connect.cursor()
+                datett = str(self.last_data_time)
+                if self.last_data_time is not None:
+                    sql = "SELECT * FROM outbreak WHERE time>'" + datett + "' ORDER BY Zone ASC"
+                else:
+                    sql = "SELECT * FROM outbreak WHERE time>'" + now_time + "' ORDER BY Zone ASC"
+                cur.execute(sql)
+                result = cur.fetchall()
+
+                data_list = []
+
+                for data in result:
+                    data_list.append(data)
+                if result:
+                    self.last_data_time = result[-1][0]
+
+                db_connect.close()
+        except Exception as e:
+            print("err outbreak_data : ", e)
+        return data_list

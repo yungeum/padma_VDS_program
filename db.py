@@ -14,6 +14,13 @@ class DB_function:
 
         self.distlong_diff = 30
         self.log_count = 0
+
+        self.last_congestion_list = []
+        self.last_outbreak_list = []
+        self.current_congestion = []
+        self.current_stop = []
+        self.current_reverse = []
+
         # ptz_info = self.get_ptz_info(host='127.0.0.1', port=3315, user='root', password='hbrain0372!', db='hbrain_vds', charset='utf8')
         # print(self.get_occupancy_interval_data(lane=6, host='127.0.0.1', port=1433, user='sa', password='hbrain0372!', db='hbrain_vds', charset='utf8'))
         # print(self.get_congestion_data(congestion=43, cycle=30, zone=60, sync_time=time.time(), host='127.0.0.1', port=1433, user='sa', password='hbrain0372!', db='hbrain_vds', charset='utf8'))
@@ -38,30 +45,29 @@ class DB_function:
         db_connect.close()
 
         # region sql 구문
-        create_obj_info = "CREATE TABLE IF NOT EXISTS obj_info(time datetime(3) NOT NULL, ID TINYINT NOT NULL, DistLat FLOAT default NULL, DistLong FLOAT default NULL, VrelLat FLOAT default NULL, VrelLong FLOAT default NULL, Velocity FLOAT default NULL, RCS FLOAT default NULL, ProbOfExist TINYINT default NULL, ArelLat FLOAT default NULL, ArelLong FLOAT default NULL, Class TINYINT default NULL, Length FLOAT default NULL, Width FLOAT default NULL, Zone TINYINT default NULL, Lane TINYINT default NULL, PRIMARY KEY(time, ID));"
-        create_traffic_detail = "CREATE TABLE IF NOT EXISTS Traffic_Detail(time datetime(3) NOT NULL, ID TINYINT NOT NULL, DistLong FLOAT default NULL, Velocity FLOAT default NULL, Zone TINYINT default NULL, Class TINYINT default NULL, category TINYINT NOT NULL, PRIMARY KEY(time, ID, category));"
-        create_traffic_info = "CREATE TABLE IF NOT EXISTS Traffic_Info(Lane TINYINT NOT NULL, nTraffic INT default NULL, totalVelocity FLOAT default NULL, PRIMARY KEY(Lane));"
-        create_outbreak = "CREATE TABLE IF NOT EXISTS Outbreak(time datetime(3) NOT NULL, idx TINYINT NOT NULL, Class TINYINT NOT NULL, Zone TINYINT default NULL, DistLat FLOAT default NULL, DistLong FLOAT default NULL, Distance FLOAT default NULL, PRIMARY KEY(time, Idx, Class));"
-        create_parameter = "CREATE TABLE IF NOT EXISTS Parameter(Param TINYINT NOT NULL, Nbyte TINYINT NOT NULL, Data SMALLINT default NULL, PRIMARY KEY (Param, Nbyte));"
-        create_vds_version = "CREATE TABLE IF NOT EXISTS Vds_version(time DATE default NULL, version_No TINYINT NOT NULL, release_No TINYINT NOT NULL, year TINYINT default NULL, month TINYINT default NULL, day TINYINT default NULL, PRIMARY KEY (version_No, release_No));"
-        create_sw_parameter = "CREATE TABLE IF NOT EXISTS Sw_parameter(Param CHAR(64) NOT NULL, value CHAR(32) default NULL, PRIMARY KEY(param));"
-        create_controlBox_status = "CREATE TABLE IF NOT EXISTS ControlBox_Status(Param CHAR(64) NOT NULL, Data INT default NULL, PRIMARY KEY (Param));"
-        create_vds_log = "CREATE TABLE IF NOT EXISTS Vds_Log(idx INT NOT NULL, time datetime(3) NOT NULL, opcode CHAR(4) default NULL, packet CHAR(4) default NULL, acknack CHAR(4) default NULL, reason CHAR(32) default NULL, PRIMARY KEY(idx, time));"
+        create_obj_info = "CREATE TABLE IF NOT EXISTS obj_info(time datetime(3) NOT NULL, id TINYINT NOT NULL, distlat FLOAT default NULL, distlong FLOAT default NULL, vrellat FLOAT default NULL, vrellong FLOAT default NULL, velocity FLOAT default NULL, rcs FLOAT default NULL, probofexist TINYINT default NULL, arellat FLOAT default NULL, arellong FLOAT default NULL, class TINYINT default NULL, length FLOAT default NULL, width FLOAT default NULL, zone TINYINT default NULL, lane TINYINT default NULL, PRIMARY KEY(time, id));"
+        create_traffic_detail = "CREATE TABLE IF NOT EXISTS traffic_detail(time datetime(3) NOT NULL, id TINYINT NOT NULL, distlong FLOAT default NULL, velocity FLOAT default NULL, zone TINYINT default NULL, class TINYINT default NULL, category TINYINT NOT NULL, PRIMARY KEY(time, id, category));"
+        create_traffic_info = "CREATE TABLE IF NOT EXISTS traffic_info(lane TINYINT NOT NULL, ntraffic INT default NULL, totalvelocity FLOAT default NULL, PRIMARY KEY(lane));"
+        create_outbreak = "CREATE TABLE IF NOT EXISTS outbreak(time datetime(3) NOT NULL, idx TINYINT NOT NULL, class TINYINT NOT NULL, zone TINYINT default NULL, distlat FLOAT default NULL, distlong FLOAT default NULL, distance FLOAT default NULL, PRIMARY KEY(time, idx, class));"
+        create_parameter = "CREATE TABLE IF NOT EXISTS parameter(param TINYINT NOT NULL, nbyte TINYINT NOT NULL, data SMALLINT default NULL, PRIMARY KEY (param, nbyte));"
+        create_vds_version = "CREATE TABLE IF NOT EXISTS vds_version(time DATE default NULL, version_no TINYINT NOT NULL, release_no TINYINT NOT NULL, year TINYINT default NULL, month TINYINT default NULL, day TINYINT default NULL, PRIMARY KEY (version_no, release_no));"
+        create_sw_parameter = "CREATE TABLE IF NOT EXISTS sw_parameter(param CHAR(64) NOT NULL, value CHAR(32) default NULL, PRIMARY KEY(param));"
+        create_controlbox_status = "CREATE TABLE IF NOT EXISTS controlbox_status(param CHAR(64) NOT NULL, data INT default NULL, PRIMARY KEY (param));"
+        create_vds_log = "CREATE TABLE IF NOT EXISTS vds_log(idx INT NOT NULL, time datetime(3) NOT NULL, opcode CHAR(4) default NULL, packet CHAR(4) default NULL, acknack CHAR(4) default NULL, reason CHAR(32) default NULL, PRIMARY KEY(idx, time));"
+        create_outbreak_status = "CREATE TABLE IF NOT EXISTS outbreak_status(zone TINYINT default NULL, type TINYINT default NULL, status TINYINT default NULL);"
 
-        insert_traffic_info = "INSERT INTO Traffic_Info VALUES(1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0);"
-        insert_parameter = "INSERT INTO Parameter VALUES(1, 0, 4), (1, 1, 0), (3, 0, 30), (5, 0, 0), (5, 1, 11), (5, 2, 21), (5, 3, 31), (5, 4, 41), (5, 5, 51), (5, 6, 61), (5, 7, 71), (5, 8, 81), (5, 9, 91), (5, 10, 101), (5, 11, 111), (7, 0, 1), (9, 0, 1), (11, 0, 0), (11, 1, 200), (11, 2, 25), (11, 3, 5), (13, 0, 60), (19, 0, 1);"
+
+        insert_traffic_info = "INSERT INTO traffic_info VALUES(1, 0, 0), (2, 0, 0), (3, 0, 0), (4, 0, 0), (5, 0, 0), (6, 0, 0);"
+        insert_parameter = "INSERT INTO parameter VALUES(1, 0, 4), (1, 1, 0), (3, 0, 30), (5, 0, 0), (5, 1, 11), (5, 2, 21), (5, 3, 31), (5, 4, 41), (5, 5, 51), (5, 6, 61), (5, 7, 71), (5, 8, 81), (5, 9, 91), (5, 10, 101), (5, 11, 111), (7, 0, 1), (9, 0, 1), (11, 0, 0), (11, 1, 200), (11, 2, 25), (11, 3, 5), (13, 0, 60), (19, 0, 1);"
         insert_vds_version = "INSERT INTO vds_version VALUES('2022-07-25', 1, 1, 22, 7, 25), ('2022-08-02', 1, 2, 22, 8, 2);"
-        # 점유율 구간
         insert_sw_parameter_1 = "INSERT INTO sw_parameter VALUES" \
-                              "('1_occupancy_min', '45'), ('1_occupancy_max', '70')," \
-                              "('2_occupancy_min', '45'), ('2_occupancy_max', '75')," \
-                              "('3_occupancy_min', '45'), ('3_occupancy_max', '80')," \
-                              "('4_occupancy_min', '35'), ('4_occupancy_max', '75')," \
-                              "('5_occupancy_min', '35'), ('5_occupancy_max', '80')," \
-                              "('6_occupancy_min', '35'), ('6_occupancy_max', '85');"
-        # 교통 정보 수집
+                                "('1_occupancy_min', '45'), ('1_occupancy_max', '70')," \
+                                "('2_occupancy_min', '45'), ('2_occupancy_max', '75')," \
+                                "('3_occupancy_min', '45'), ('3_occupancy_max', '80')," \
+                                "('4_occupancy_min', '35'), ('4_occupancy_max', '75')," \
+                                "('5_occupancy_min', '35'), ('5_occupancy_max', '80')," \
+                                "('6_occupancy_min', '35'), ('6_occupancy_max', '85');"
         insert_sw_parameter_2 = "INSERT INTO sw_parameter VALUES('1_traffic', '60'), ('2_traffic', '55');"
-        # 차선 정보
         insert_sw_parameter_3 = "INSERT INTO sw_parameter VALUES" \
                                 "('1_lanePoint', '3.3'), " \
                                 "('2_lanePoint', '3.3'), " \
@@ -89,13 +95,14 @@ class DB_function:
         insert_sw_parameter_12 = "INSERT INTO sw_parameter VALUES('SOCKET_IP', NULL),('SOCKET_PORT', '30100');"
         insert_sw_parameter_13 = "INSERT INTO sw_parameter VALUES('congestion_criterion', '50'),('congestion_cycle', '30');"
         insert_sw_parameter_14 = "INSERT INTO sw_parameter VALUES('Controller_station_number', NULL);"
-        insert_sw_parameter_15 = "INSERT INTO Sw_parameter VALUES('latitude', '023.461247'),('longitude', '090.262759');"
+        insert_sw_parameter_15 = "INSERT INTO sw_parameter VALUES('latitude', '023.461247'),('longitude', '090.262759');"
 
-        insert_controlbox_status_1 = "INSERT INTO controlBox_Status VALUES('Long_Power_Fail', 0),('Short_Power_Fail', 0),('Default Parameter', 1);"
-        insert_controlbox_status_2 = "INSERT INTO controlBox_Status VALUES('Front_Door_Status', 0),('Back_Door_Status', 0),('Fan_Status', 0),('Heater_Stauts', 0),('Image_Status', 0),('Reset_Status', 0);"
-        insert_controlbox_status_3 = "INSERT INTO controlBox_Status VALUES('Temperature', 24),('Input_Voltage', 220),('Output_Voltage', 12);"
+        insert_controlbox_status_1 = "INSERT INTO controlbox_status VALUES('Long_Power_Fail', 0),('Short_Power_Fail', 0),('Default Parameter', 1);"
+        insert_controlbox_status_2 = "INSERT INTO controlbox_status VALUES('Front_Door_Status', 0),('Back_Door_Status', 0),('Fan_Status', 0),('Heater_Stauts', 0),('Image_Status', 0),('Reset_Status', 0);"
+        insert_controlbox_status_3 = "INSERT INTO controlbox_status VALUES('Temperature', 24),('Input_Voltage', 220),('Output_Voltage', 12);"
         time_temp = (datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3])
-        insert_program_start = "INSERT INTO Vds_Log VALUES(0, '" + time_temp + "',  NULL, NULL, NULL, 'START VDS_COM PROGRAM');"
+        insert_program_start = "INSERT INTO vds_log VALUES(0, '" + time_temp + "',  NULL, NULL, NULL, 'START VDS_COM PROGRAM');"
+
         # endregion
 
         if use_db:
@@ -138,14 +145,19 @@ class DB_function:
                 print("err create_sw_parameter: ", e)
 
             try:
-                cur_conn.execute(create_controlBox_status)
+                cur_conn.execute(create_controlbox_status)
             except Exception as e:
-                print("err create_controlBox_status: ", e)
+                print("err create_controlbox_status: ", e)
 
             try:
                 cur_conn.execute(create_vds_log)
             except Exception as e:
                 print("err create_vds_log: ", e)
+
+            try:
+                cur_conn.execute(create_outbreak_status)
+            except Exception as e:
+                print("err create_outbreak_status: ", e)
 
             try:
                 cur_conn.execute(insert_traffic_info)
@@ -383,7 +395,7 @@ class DB_function:
         return version_list
 
     # 교통량 데이터
-    def get_traffic_data(self, cycle=None, sync_time=None, lane=6, max_distance=None,node_interval=None, share_interval=None, host=None, port=None, user=None, password=None,
+    def get_traffic_data(self, cycle=None, sync_time=None, data_start=None, data_end=None, lane=6, max_distance=None,node_interval=None, share_interval=None, host=None, port=None, user=None, password=None,
                          db=None, charset='utf8'):
         traffic_data = []
 
@@ -391,10 +403,6 @@ class DB_function:
             if sync_time is None and node_interval is None:
                 print('nack')
             else:
-                temp = time.localtime(sync_time - cycle)
-                data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
-                temp2 = time.localtime(sync_time)
-                data_end = time.strftime("%Y-%m-%d %H:%M:%S", temp2)
                 date_delete = datetime.fromtimestamp(sync_time - 120)  # 점유율에서 오래된 데이터(120초 전) 제거
 
                 # 교통량 및 속도
@@ -410,13 +418,16 @@ class DB_function:
 
                 # 상하행
                 lane_way = self.calc.lane_way(lane)
-
-                # 전송 데이터 종합
-                if lane >= 1:
-                    for i in range(lane):
-                        #              [      교통량,                    속도,               점유율,         상/하행]
-                        traffic_temp = [Lane_traffic_data[0][i], Lane_traffic_data[1][i], share_data[i], lane_way[i]]
-                        traffic_data.append(traffic_temp)
+                if Lane_traffic_data != []:
+                    # 전송 데이터 종합
+                    if lane >= 1:
+                        for i in range(lane):
+                            #              [      교통량,                    속도,               점유율,         상/하행]
+                            traffic_temp = [Lane_traffic_data[0][i], Lane_traffic_data[1][i], share_data[i],
+                                            lane_way[i]]
+                            traffic_data.append(traffic_temp)
+                else:
+                    traffic_data = []
 
         except Exception as e:
             print("err get_traffic_data : ", e)
@@ -424,7 +435,7 @@ class DB_function:
         return traffic_data
 
     # 개별 차량 데이터
-    def get_individual_traffic_data(self, cycle=None, sync_time=None, lane=6, host=None, port=None, user=None,
+    def get_individual_traffic_data(self, cycle=None, sync_time=None, data_start=None, data_end=None, lane=6, host=None, port=None, user=None,
                                     password=None, db=None, charset='utf8'):
         individual_traffic_data = []
 
@@ -432,11 +443,6 @@ class DB_function:
             if sync_time is None:
                 print('nack')
             else:
-                temp = time.localtime(sync_time - cycle)
-                data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
-                temp2 = time.localtime(sync_time)
-                data_end = time.strftime("%Y-%m-%d %H:%M:%S", temp2)
-
                 # 개별 차량 데이터
                 individual_traffic_data = self.calc.Individual_car_data(data_start, data_end, lane, host, port, user, password, db, charset)
 
@@ -458,15 +464,17 @@ class DB_function:
             sql = "SELECT * FROM traffic_info order by Lane asc"
             cur.execute(sql)
             result = cur.fetchall()
-            for i in range(lane):
-                ntraffic_data.append(result[i][1])   # result = [lane, nTraffic, totalVelocity]
+            if result[0][1] == 0 and result[1][1] == 0 and result[2][1] == 0 and result[3][1] == 0 and result[4][1] == 0 and result[5][1] == 0:
+                ntraffic_data = []
+            else:
+                for i in range(lane):
+                    ntraffic_data.append(result[i][1])  # result = [lane, nTraffic, totalVelocity]
 
-            # 초기화 부분
-            # mysql
-            sql = "update traffic_info set nTraffic=0, totalVelocity=0 where Lane;"
-
-            cur.execute(sql)
-            db_connect.commit()
+                # 초기화 부분
+                # mysql
+                sql = "update traffic_info set nTraffic=0, totalVelocity=0 where Lane;"
+                cur.execute(sql)
+                db_connect.commit()
             db_connect.close()
         except Exception as e:
             print("err get_ntraffic_data : ", e)
@@ -517,20 +525,95 @@ class DB_function:
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
                 zone_data = self.calc.congestion_data(node_interval=node_interval, data_start=data_start, host=host, port=port, user=user,
                                                       password=password, db=db, charset=charset)
-                if zone_data:
+                if zone_data is not None:
                     for i, lane_data in enumerate(zone_data):
                         for j, a_velocity in enumerate(lane_data):
-                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만
-                                # i+1 = 차선. j = 구역
-                                congestion_list.append([i + 1, j])
-                else:
-                    print("nack")
-                # print("차선별 데이터/ ", zone_data)
-                # print("지정체 데이터/ ", congestion_list)
+                            # i+1 = 차선. j = 구역
+                            current_lane = i + 1
+                            if current_lane <= 3:
+                                current_updown = 0
+                            if current_lane >= 4:
+                                current_updown = 1
+                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만일 경우(30km미만)
+                                if not any(item[1] == current_updown for item in self.last_congestion_list):
+                                    congestion_list.append([current_lane, current_updown, j])
+                                    self.last_congestion_list.append([current_lane, current_updown, j])
+                                    print("30미만 last_congestion_list : ", self.last_congestion_list)
+                            if a_velocity >= 50 and self.last_congestion_list is not None:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
+                                if any(item[1] == current_updown for item in self.last_congestion_list):
+                                    self.last_congestion_list = [item for item in self.last_congestion_list if item[2] != j or item[1] != current_updown]
+                                    print("50이상 last_congestion_list : ", self.last_congestion_list)
         except Exception as e:
             print("err get_congestion_data : ", e)
-
         return zone_data, congestion_list
+
+    # 돌발
+    def outbreak(self, congestion=None, sync_time=None, cycle=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+        outbreak = []
+        zone_data = []
+        stop_list = []
+        reverse_list = []
+
+        try:
+            if sync_time is None and cycle is None:
+                print('nack')
+            else:
+                temp = time.localtime(sync_time - cycle)
+                data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
+                now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(sync_time))
+                zone_data = self.calc.congestion_data(data_start=data_start, host=host, port=port, user=user, password=password, db=db, charset=charset)
+                outbreak_data = self.calc.outbreak_data(data_start=data_start, now_time=now_time, host=host, port=port, user=user, password=password, db=db, charset=charset)
+
+                # 지정체
+                if zone_data is not None:
+                    for i, lane_data in enumerate(zone_data):
+                        for j, a_velocity in enumerate(lane_data):
+                            # i+1 = 차선. j = 구역
+                            current_lane = i + 1
+                            if current_lane <= 3:
+                                current_updown = 0
+                            if current_lane >= 4:
+                                current_updown = 1
+                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만일 경우(30km미만)
+                                if not any(item[1] == current_updown for item in self.last_congestion_list):
+                                    outbreak.append([4, current_updown])
+                                    self.last_congestion_list.append([current_lane, current_updown, j])
+                                    print("지정체 발생 : ", self.last_congestion_list)
+                            if a_velocity >= 50 and self.last_congestion_list is not None:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
+                                if any(item[1] == current_updown for item in self.last_congestion_list):
+                                    self.last_congestion_list = [item for item in self.last_congestion_list if item[2] != j or item[1] != current_updown]
+                            if self.last_congestion_list is not None:
+                                if len(self.last_congestion_list) == 1:
+                                    if any(item[1] == 0 for item in self.last_congestion_list):
+                                        self.current_congestion.append([j, 1, 0])
+                                    else:
+                                        self.current_congestion.append([j, 2, 0])
+                                if len(self.last_congestion_list) == 2:
+                                    self.current_congestion.append([j, 3, 0])
+
+                if outbreak_data is not None:
+                    if self.last_outbreak_list is not None:
+                        for last_data in self.last_outbreak_list:
+                            last_class = last_data[2]
+                            last_zone = last_data[3]
+                            stop_list = [item for item in outbreak_data if last_class == 1 and item[2] == last_class and item[3] != last_zone]  # 현재 ID가 self.last_outbreak_list에 있는지 확인하고 돌발 종류와 발생한 동일하지 않을 경우 리스트에 저장
+                            reverse_list = [item for item in outbreak_data if last_class == 2 and item[2] == last_class and item[3] != last_zone]
+                        # 정차
+                        if stop_list:  # lastlist에 새로운 돌발 데이터가 담겨 있음 [time, ID, class, zone, Distlat, DistLong, distance] 형태
+                            self.current_stop.append([stop_list[0][3], 0, 0])
+                            outbreak.append([1, stop_list[0][3]])
+                        # 역주행
+                        if reverse_list:
+                            self.current_reverse.append([reverse_list[0][3], 0, 0])
+                            outbreak.append([2, reverse_list[0][3]])
+                    self.last_outbreak_list = outbreak_data
+                    # else :
+                    #     self.last_outbreak_list = outbreak_data
+                        #
+                        # 맨 처음 db 에서 가져온 값 ,
+        except Exception as e:
+            print("err outbreak : ", e)
+        return zone_data, outbreak
 
     # 돌발 상황 정보
     def get_outbreak(self, lane=6, zone_num=None, sync_time=None, cycle=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
@@ -543,7 +626,6 @@ class DB_function:
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset,
                                              autocommit=True)
                 cur = db_connect.cursor()
-
                 # region 차선 간격 = lane_point
                 sql = "SELECT value From sw_parameter WHERE param LIKE '%lanePoint' order by param asc;"
                 cur.execute(sql)
@@ -552,21 +634,17 @@ class DB_function:
                 for data in result:
                     lane_point.append(float(data[0]))
                 # endregion
-
                 temp = time.time() - 1
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(temp))
-
                 sql = "SELECT * FROM outbreak WHERE time>='" + data_start + "' GROUP BY Class,ZONE ORDER BY time ASC, class ASC, idx ASC;"
                 cur.execute(sql)
-                result = cur.fetchall()
-
+                result_ob = cur.fetchall()
                 # print(result)
                 # 상/하행
                 if lane > 0:
                     lane_half = lane / 2
-
-                    if result:
-                        for data in result:
+                    if result_ob:
+                        for data in result_ob:
                             # out = [time, lane, class, distance, 상하행]
                             out = []
                             out.append(data[0])  # time
@@ -718,12 +796,13 @@ class DB_function:
             parameter_list.append(use_ntraffic)
             # index = 9
             parameter_list.append(use_category_speed)
-            # index = 11
+            index = 11
             parameter_list.append(max_distance_f)
+            print(max_distance_f)
             parameter_list.append(max_distance_b)
             parameter_list.append(node_interval)
             parameter_list.append(share_interval)
-            # index = 13
+            index = 13
             parameter_list.append(outbreak_cycle)
             # index = 19
             parameter_list.append(use_unexpected)
@@ -825,13 +904,13 @@ class DB_function:
         except Exception as e:
             print("error set_congestion_info : ", e)
 
-    def insert_outbreak(self, congestion_list=[], input_time=None, node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def insert_outbreak(self, outbreakdata_list=[], input_time=None, node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # congestion_list = 지정체 구역 = [차선 (1부터), 구역 (0부터)]
         # input_time = 지정체 발생 시간
         # zone = 구역 간격
         # zone_num = 차선별 구역 수
         try:
-            if congestion_list == '' or zone is None or input_time is None or node_interval is None:
+            if outbreakdata_list == '' or zone is None or input_time is None or node_interval is None:
                 print("parameter in none")
             else:
                 # db_connect = pymssql.connect(server=host, port=port, user=user, password=password, database=db, charset=charset)
@@ -840,18 +919,11 @@ class DB_function:
 
                 # outbreak_time = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime(input_time))[:-3]
                 outbreak_time = input_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                for i in range(len(congestion_list)):
-                    # zone = congestion_list[i][0]
-                    # DistLat
-                    # distlat = 0
-                    # if (congestion_list[i][0]-1) > 0:
-                    #     for j in range(congestion_list[i][0]-1):
-                    #         distlat += lane_point[j]
-                    # total_distlat = round(distlat + lane_point[congestion_list[i][0]-1]/2, 1)
-                    # DistLong
+                print("outbreakdata_list: ", outbreakdata_list)
+                for i in range(len(outbreakdata_list)):
                     #congestion_list = [차선 , 속도 ] 25 *  (50보다 작은) + 3
-                    total_distlong = round(zone * congestion_list[i][1] + zone/2, 1)
-                    sql = "INSERT INTO outbreak VALUES('" + outbreak_time + "', " + str(i) + ", 4, " + str(congestion_list[i][0]) + \
+                    total_distlong = round(zone * outbreakdata_list[i][1] + zone/2, 1)
+                    sql = "INSERT INTO outbreak VALUES('" + outbreak_time + "', " + str(i) + ", " + str(outbreakdata_list[i][0]) + ", " + str(outbreakdata_list[i][1]) + \
                           ", NULL, " + str(total_distlong) + ", " + str(total_distlong) + ");"
                     # print(sql)
                     cur.execute(sql)

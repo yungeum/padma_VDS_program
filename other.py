@@ -81,73 +81,84 @@ class Other_function:
         return iplong
 
     def nack_find(self, msg=None, csn=None):
-        # print("csn: ", csn)
-        op = msg[43]
-        csn_msg = msg[32:39]
-        # print("csn_msg: ", csn_msg)
-        opcode = [chr(0xFF), chr(0xFE), chr(0x01), chr(0x04), chr(0x05), chr(0x07),
-                  chr(0x0C), chr(0x0D), chr(0x0E), chr(0x0F), chr(0x11), chr(0x12),
-                  chr(0x13), chr(0x15),  chr(0x16), chr(0x17), chr(0x18), chr(0x19), chr(0x1E)]
-        if len(msg) < 44:   #데이터의 길이가 모두 44이상이므로 44보다 작으면 데이터 길이 오류
-            nacklist = [False, 0, chr(0x02)]
-            return nacklist
-        elif (op == chr(0xFF)) and (csn_msg == 'VD' + chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00) + chr(0x00)):
-            nacklist = [True, op, 0]
-            return nacklist
-        elif op not in opcode:
-            nacklist = [False, op, chr(0x04)]
-            return nacklist
-        elif csn_msg != csn:
-            nacklist = [False, op, chr(0x03)]
-            return nacklist
-        elif len(msg) == 44:
-            if op in [chr(0x01), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:    #길이가 44가 아닌 경우들
+        try:
+            op = msg[43]
+            csn_msg = msg[32:39]
+            # print("csn_msg: ", csn_msg)
+            opcode = [chr(0xFF), chr(0xFE), chr(0x01), chr(0x04), chr(0x05), chr(0x07),
+                      chr(0x0C), chr(0x0D), chr(0x0E), chr(0x0F), chr(0x11), chr(0x12),
+                      chr(0x13), chr(0x15), chr(0x16), chr(0x17), chr(0x18), chr(0x19), chr(0x1E)]
+            if len(msg) < 44 or len(msg) > 58:  # 데이터의 길이가 모두 44이상이므로 44보다 작으면 데이터 길이 오류
                 nacklist = [False, op, chr(0x05)]
                 return nacklist
-            else:
+            elif (op == chr(0xFF)) and (len(msg) == 43):
                 nacklist = [True, op, 0]
-                print(nacklist)
                 return nacklist
-        elif len(msg) > 43:    #길이가 44이상일때
-            if op not in [chr(0x01), chr(0xFE), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:
-                nacklist = [False, op, chr(0x04)]   #위의 op코드중에 해당 되지 않는다면 무슨 오류라고 할 수 있을까?? 우선 opcode 에러라고 판단함
-                return nacklist
-            elif (op in [chr(0x01), chr(0x0F)]) and (len(msg) != 45):   #길이가 45인 경우들
+            elif (op == chr(0xFF)) and (len(msg) > 44):
                 nacklist = [False, op, chr(0x05)]
                 return nacklist
-            elif (op == chr(0xFE)) and (len(msg) > 46):
-                nacklist = [False, op, chr(0x05)]
+            elif op not in opcode:
+                nacklist = [False, op, chr(0x04)]
                 return nacklist
-            elif (op == chr(0x18)) and (len(msg) != 51):
-                nacklist = [False, op, chr(0x05)]
+            elif csn_msg != csn:
+                nacklist = [False, op, chr(0x03)]
                 return nacklist
-            elif op == chr(0x0E):
-                index = msg[44]
-                data = msg[45:]
-                if index == 1 and (len(msg) != 47):    #index 1의 길이는 47
+            elif len(msg) == 44:
+                if op in [chr(0x01), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:  # 길이가 44가 아닌 경우들
                     nacklist = [False, op, chr(0x05)]
                     return nacklist
-                elif (index in [chr(0x03), chr(0x0D)]):    #index 3의 길이는 46 수집주기의 입력 범위는 14~120
-                    cycle = int(ord(data[0]))
-                    if cycle > 120 or cycle < 14:
+                else:
+                    nacklist = [True, op, 0]
+                    print(nacklist)
+                    return nacklist
+            elif len(msg) > 43:  # 길이가 44이상일때
+                if op not in [chr(0x01), chr(0xFE), chr(0x0E), chr(0x0F), chr(0x13), chr(0x18), chr(0x19)]:
+                    nacklist = [False, op, chr(0x05)]  # 위의 op코드중에 해당 되지 않는다면 무슨 오류라고 할 수 있을까?? 우선 opcode 에러라고 판단함
+                    return nacklist
+                elif (op in [chr(0x01), chr(0x0F)]) and (len(msg) != 45):  # 길이가 45인 경우들
+                    nacklist = [False, op, chr(0x05)]
+                    return nacklist
+                elif (op == chr(0xFE)) and (len(msg) > 46):
+                    nacklist = [False, op, chr(0x05)]
+                    return nacklist
+                elif op == chr(0x18):
+                    if len(msg) > 51:
                         nacklist = [False, op, chr(0x05)]
+                        return nacklist
+                    elif len(msg) != 51:
+                        nacklist = [False, op, chr(0x02)]
                         return nacklist
                     else:
                         nacklist = [True, op, 0]
                         print(nacklist)
                         return nacklist
-                elif index == 5 and (len(msg) != 57):
-                    nacklist = [False, op, chr(0x05)]
-                    return nacklist
-                elif (index in [chr(0x07), chr(0x09), chr(0x13)]) and (len(msg) != 46):
-                    nacklist = [False, op, chr(0x05)]
-                    return nacklist
-                elif index == 11:
-                    max_distance_f = int(ord(data[0])) * 256  # (=> << 8)
-                    max_distance_b = int(ord(data[1]))
-                    max_distance = max_distance_f + max_distance_b
-                    if max_distance > 400:
-                        nacklist = [False, op, chr(0x05)]
+                elif op == chr(0x0E):
+                    if (len(msg) > 44) and (len(msg) < 58):
+                        index = msg[44]
+                        if index == chr(0x01) and (len(msg) != 47):  # index 1의 길이는 47
+                            nacklist = [False, op, chr(0X02)]
+                            return nacklist
+                        elif (index == chr(0x03)) and (len(msg) != 46):  # index 3의 길이는 46 수집주기의 입력 범위는 14~120
+                            nacklist = [False, op, chr(0X02)]
+                            return nacklist
+                        elif index == chr(0x05) and (len(msg) != 57):
+                            nacklist = [False, op, chr(0X02)]
+                            return nacklist
+                        elif (index in [chr(0x07), chr(0x09), chr(0x0D)]) and (len(msg) != 46):
+                            nacklist = [False, op, chr(0X02)]
+                            return nacklist
+                        else:
+                            nacklist = [True, op, 0]
+                            print(nacklist)
+                            return nacklist
+                    else:
+                        nacklist = [False, op, chr(0X05)]
+                        return nacklist
+                elif op == chr(0x0F):
+                    index = msg[44]
+                    if index not in [chr(0x01), chr(0x03), chr(0x05), chr(0x07), chr(0x09), chr(0x0D), chr(0x13)]:
+                        nacklist = [False, op, chr(0X05)]
+                        print(nacklist)
                         return nacklist
                     else:
                         nacklist = [True, op, 0]
@@ -161,7 +172,6 @@ class Other_function:
                 nacklist = [True, op, 0]
                 print(nacklist)
                 return nacklist
-        else:
-            nacklist = [True, op, 0]
-            print(nacklist)
-            return nacklist
+        except Exception as e:
+            print("nack_find error: ", e)
+

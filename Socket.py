@@ -11,75 +11,73 @@ import cv2
 import numpy as np
 import base64
 
+import re
+
 class Socket_function:
     def __init__(self):
         super().__init__()
 
-        self.server_socket = None
-        self.client_socket_list = list()
-        self.client_socket = None
+        self.server_socket = None  # 서버 소켓 객체
+        self.client_socket_list = list()  # 클라이언트 소켓 리스트
+        self.client_socket = None  # 현재 연결된 클라이언트 소켓
 
-        self.ip = None
-        self.port = None
+        self.ip = None  # 서버 IP 주소
+        self.port = None  # 서버 포트 번호
 
-        self.ot = Other_function()
+        self.ot = Other_function()  # 다른 함수에 대한 객체 인스턴스 (추가 설명 필요)
 
     def socket_server_open(self, ip, port):
-        self.ip = ip
-        self.port = port
-        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind((ip, port))
-        self.server_socket.listen(5)
-        # self.server_socket.listen(5)
+        # 서버 소켓을 열고 설정하는 메서드
+        self.ip = ip  # IP 주소 저장
+        self.port = port  # 포트 번호 저장
+
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # IPv4 주소 체계와 TCP 프로토콜을 사용하는 소켓 생성
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # 소켓 옵션 설정 (주소 재사용)
+        self.server_socket.bind((ip, port))  # 소켓을 주어진 IP 주소와 포트 번호에 바인딩
+        self.server_socket.listen(1)  # 클라이언트의 연결 요청을 받을 수 있도록 대기 상태로 진입 (최대 5개의 연결 대기열)
 
     def client_accept(self):
-        c_s, addr = self.server_socket.accept()
-        self.client_socket_list.append(c_s)
+        c_s, addr = self.server_socket.accept()  # 클라이언트의 연결을 수락하고 클라이언트 소켓과 주소를 받아옴
+        self.client_socket_list.append(c_s)  # 클라이언트 소켓을 리스트에 추가
+
         if len(self.client_socket_list) > 2:
-            # self.client_socket_close()
-            self.client_socket_list[0].close()
-            self.client_socket_list.pop(0)
-        self.client_socket = self.client_socket_list[-1]
-        # print("list==", self.client_socket_list)
-        return self.client_socket
+            self.client_socket_list[0].close()  # 가장 오래된 클라이언트 소켓을 닫음
+            self.client_socket_list.pop(0)  # 리스트에서 제거
+
+        self.client_socket = self.client_socket_list[-1]  # 가장 최근에 연결된 클라이언트 소켓을 현재 클라이언트 소켓으로 지정
+        return self.client_socket  # 클라이언트 소켓 반환
 
     def client_socket_close(self):
-        # self.client_socket.shutdown(socket.SHUT_RDWR)
-        # self.client_socket.close()
-        # self.client_socket.detach()
-        self.client_socket = None
+        # 클라이언트 소켓을 닫는 메서드
+        self.client_socket = None  # 클라이언트 소켓을 None으로 초기화
 
     def socket_connect(self, ip, port):
+        # 다른 서버에 연결하기 위해 소켓을 생성하고 연결하는 메서드
         self.client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.client_socket.connect((ip, port))
 
     def socket_send_msg(self, send_msg):
-        self.client_socket.send(send_msg.encode('utf-16'))
-        print("TX OPCode: ", "0x{:02X}".format(ord(send_msg[43])))
-        print("TX_msg: [", ", ".join(str(ord(data)) for data in send_msg[44:]), "]")
-        # print("TX_msg: [", send_msg, "]")
-        # print("TX: [", send_msg.encode('utf-16'), "]")
-        # recv
-        # recv_msg = self.client_socket.recv(1024)
-        # d_recv_msg = recv_msg.decode()
-        # print("recv: " + recv_msg.decode())
-        # for i in range(len(recv_msg)):
-        #     print("msg[i]: ", recv_msg[i])
-        #
-        # for i in range(len(recv_msg)):
-        #     print("de_msg[i]: ", recv_msg[i])
+        # 메시지를 소켓을 통해 전송하는 메서드
+        self.client_socket.send(send_msg.encode('utf-16'))  # 인코딩된 메시지를 클라이언트 소켓을 통해 전송
+        if len(send_msg) > 43:
+            print("TX OPCode: ", "0x{:02X}".format(ord(send_msg[43])))
+            print("TX_msg: [", ", ".join(hex(ord(data)) for data in send_msg[44:]), "]")
+            print("-------------------------------------------------------------------")
+        else:
+            print("TX OPCode: Unable to determine due to insufficient message length")
+            print("TX_msg: [", ", ".join(hex(ord(data)) for data in send_msg[0:]), "]")
+            print("-------------------------------------------------------------------")
 
     def socket_read(self):
+        # 소켓으로부터 데이터를 읽어오는 메서드
         msg = ''
         try:
-            msg = self.client_socket.recv(1024)
-            # print(self.client_socket)
+            if self.client_socket:
+                msg = self.client_socket.recv(1024)  # 클라이언트 소켓으로부터 최대 1024바이트의 데이터를 읽어옴
         except Exception as e:
-            # self.client_socket = None
-            print("err socket_read : ", e)
+            print("err socket_read : ", e)  # 예외가 발생한 경우 에러 메시지 출력
 
-        return msg
+        return msg  # 읽어온 데이터 반환
 
     # region msg response
     def send_FF_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number):
@@ -89,7 +87,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(ack))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_FE_msg(self, sender_ip, destination_ip, controller_kind, controller_number):
         point = chr(0x2D)
@@ -97,7 +96,8 @@ class Socket_function:
         length = self.ot.length_calc(1)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_04_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, frame, lane, traffic_data):
         point = chr(0x2D)
@@ -117,7 +117,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_05_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, speed_data):
         point = chr(0x2D)
@@ -134,7 +135,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_07_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, ntraffic_data):
         point = chr(0x2D)
@@ -151,7 +153,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0C_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number):
         point = chr(0x2D)
@@ -160,7 +163,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0D_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number):
         point = chr(0x2D)
@@ -169,7 +173,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0E_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number):
         point = chr(0x2D)
@@ -177,7 +182,8 @@ class Socket_function:
         data = chr(0x06) # ack
         length = self.ot.length_calc(1 + len(data))
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0F_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, index, lane_num, collect_cycle, category_num, acc_speed, calc_speed, max_distance, node_interval, share_interval, outbreak_cycle, use_unexpected):
         point = chr(0x2D)
@@ -187,7 +193,7 @@ class Socket_function:
         data = ''
         if index == 1:
             # 차로 계산 (1 << 차로-1)
-            byte_1 = chr(1 << (lane_num - 1))
+            byte_1 = chr(1 << (8-lane_num))
             byte_2 = chr(0)
             data = byte_1 + byte_2
         elif index == 3:
@@ -239,7 +245,8 @@ class Socket_function:
 
         length = self.ot.length_calc(2 + len(data))
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_11_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, connect_time, request_time):
         point = chr(0x2D)
@@ -255,7 +262,8 @@ class Socket_function:
             length = self.ot.length_calc(2 + len(data))
 
             send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-            self.socket_send_msg(send_msg)
+            # self.socket_send_msg(send_msg)
+            return send_msg
         else:
             print("Please connect 0xFF")
 
@@ -268,7 +276,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack +data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_15_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, version_list):
         if version_list == '':
@@ -287,7 +296,8 @@ class Socket_function:
             length = self.ot.length_calc(2 + len(data))
 
             send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-            self.socket_send_msg(send_msg)
+            # self.socket_send_msg(send_msg)
+            return send_msg
 
     # 개별 차량 데이터 응답
     def send_16_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, frame, individual_traffic_data):
@@ -302,7 +312,8 @@ class Socket_function:
         length = self.ot.length_calc(2 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + ack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     # 정지 영상 응답
     def send_17_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, img):
@@ -328,7 +339,8 @@ class Socket_function:
 
         send_msg = sender_ip + destination_ip + controller + total_length + opcode + ack + img_length + stringData
 
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
 
 
@@ -340,7 +352,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(data))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     # 돌발 상황 정보
     def send_19_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, outbreak, location):
@@ -362,7 +375,8 @@ class Socket_function:
         print("total_length: ", len(datafield))
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + datafield
         # print(send_msg)
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_1E_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, controllerBox_state_list):
         point = chr(0x2D)
@@ -377,7 +391,8 @@ class Socket_function:
         # print(send_msg)
         # for i in send_msg:
         #     print(ord(i))
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_nack_res_msg(self, sender_ip, destination_ip, controller_kind, controller_number, list):
         point = chr(0x2D)
@@ -385,9 +400,10 @@ class Socket_function:
         opcode = list[1]
         data = list[2]
         length = self.ot.length_calc(len(opcode) + len(data) + 1)
-        print("###NACK: ", list)
+        print("###NACK: ", hex(ord(opcode)), hex(ord(data)))
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + nack + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
     # endregion
 
     def send_FF_msg(self):
@@ -400,7 +416,8 @@ class Socket_function:
         opcode = chr(0xFF)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_01_msg(self):
         sender_ip = '123.456.789.123'
@@ -413,7 +430,8 @@ class Socket_function:
         length = self.ot.length_calc(2)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data_frame
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_04_msg(self):
         sender_ip = '123.456.789.123'
@@ -426,7 +444,8 @@ class Socket_function:
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
         #send_msg ='123.456.789.123-127.000.000.001-VD123450001chr(0x04)'
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_05_msg(self):
         sender_ip = '123.456.789.123'
@@ -438,7 +457,8 @@ class Socket_function:
         opcode = chr(0x05)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_07_msg(self):
         sender_ip = '123.456.789.123'
@@ -450,7 +470,8 @@ class Socket_function:
         opcode = chr(0x07)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0C_msg(self):
         sender_ip = '123.456.789.123'
@@ -462,7 +483,8 @@ class Socket_function:
         opcode = chr(0x0C)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0D_msg(self):
         sender_ip = '123.456.789.123'
@@ -474,7 +496,8 @@ class Socket_function:
         length = self.ot.length_calc(1)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0E_msg(self):
         point = chr(0x2D)
@@ -539,7 +562,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + data)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + data
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_0F_msg(self):
         point = chr(0x2D)
@@ -553,7 +577,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(index))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + index
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_11_msg(self):
         point = chr(0x2D)
@@ -565,7 +590,8 @@ class Socket_function:
         length = self.ot.length_calc(1)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_13_msg(self):
         point = chr(0x2D)
@@ -578,7 +604,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(echo_msg))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + echo_msg
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_15_msg(self):
         sender_ip = '123.456.789.123'
@@ -590,7 +617,8 @@ class Socket_function:
         opcode = chr(0x15)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_16_msg(self):
         sender_ip = '123.456.789.123'
@@ -602,7 +630,8 @@ class Socket_function:
         opcode = chr(0x16)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_17_msg(self):
         sender_ip = '123.456.789.123'
@@ -615,7 +644,8 @@ class Socket_function:
         length = self.ot.length_calc(1 + len(cam))
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode + cam
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_18_msg(self):
         sender_ip = '123.456.789.123'
@@ -628,7 +658,8 @@ class Socket_function:
         # change_rtc_tune =
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
     def send_1E_msg(self):
         sender_ip = '123.456.789.123'
@@ -640,6 +671,7 @@ class Socket_function:
         opcode = chr(0x1E)
 
         send_msg = sender_ip + point + destination_ip + point + controller_kind + controller_number + length + opcode
-        self.socket_send_msg(send_msg)
+        # self.socket_send_msg(send_msg)
+        return send_msg
 
 
