@@ -17,9 +17,9 @@ class DB_function:
 
         self.last_congestion_list = []
         self.last_outbreak_list = []
-        self.current_congestion = []
-        self.current_stop = []
-        self.current_reverse = []
+        self.current_congestion = None
+        self.current_stop = None
+        self.current_reverse = None
 
         # ptz_info = self.get_ptz_info(host='127.0.0.1', port=3315, user='root', password='hbrain0372!', db='hbrain_vds', charset='utf8')
         # print(self.get_occupancy_interval_data(lane=6, host='127.0.0.1', port=1433, user='sa', password='hbrain0372!', db='hbrain_vds', charset='utf8'))
@@ -565,7 +565,7 @@ class DB_function:
                 outbreak_data = self.calc.outbreak_data(data_start=data_start, now_time=now_time, host=host, port=port, user=user, password=password, db=db, charset=charset)
 
                 # 지정체
-                if zone_data is not None:
+                if zone_data:
                     for i, lane_data in enumerate(zone_data):
                         for j, a_velocity in enumerate(lane_data):
                             # i+1 = 차선. j = 구역
@@ -579,38 +579,47 @@ class DB_function:
                                     outbreak.append([4, current_updown])
                                     self.last_congestion_list.append([current_lane, current_updown, j])
                                     print("지정체 발생 : ", self.last_congestion_list)
-                            if a_velocity >= 50 and self.last_congestion_list is not None:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
+                            if a_velocity >= 50 and self.last_congestion_list:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
                                 if any(item[1] == current_updown for item in self.last_congestion_list):
                                     self.last_congestion_list = [item for item in self.last_congestion_list if item[2] != j or item[1] != current_updown]
-                            if self.last_congestion_list is not None:
+                            if self.last_congestion_list:
                                 if len(self.last_congestion_list) == 1:
                                     if any(item[1] == 0 for item in self.last_congestion_list):
-                                        self.current_congestion.append([j, 1, 0])
+                                        self.current_congestion = [j, 1, 0]
                                     else:
-                                        self.current_congestion.append([j, 2, 0])
+                                        self.current_congestion = [j, 2, 0]
                                 if len(self.last_congestion_list) == 2:
-                                    self.current_congestion.append([j, 3, 0])
+                                    self.current_congestion = [j, 3, 0]
+                            else:
+                                self.current_congestion = None
 
-                if outbreak_data is not None:
-                    if self.last_outbreak_list is not None:
+                if outbreak_data:   #1019 last_outbreak_list 수정 필요 current_stop, current_reverse 사용해야함
+                    if self.last_outbreak_list:
                         for last_data in self.last_outbreak_list:
                             last_class = last_data[2]
                             last_zone = last_data[3]
-                            stop_list = [item for item in outbreak_data if last_class == 1 and item[2] == last_class and item[3] != last_zone]  # 현재 ID가 self.last_outbreak_list에 있는지 확인하고 돌발 종류와 발생한 동일하지 않을 경우 리스트에 저장
-                            reverse_list = [item for item in outbreak_data if last_class == 2 and item[2] == last_class and item[3] != last_zone]
-                        # 정차
-                        if stop_list:  # lastlist에 새로운 돌발 데이터가 담겨 있음 [time, ID, class, zone, Distlat, DistLong, distance] 형태
-                            self.current_stop.append([stop_list[0][3], 0, 0])
-                            outbreak.append([1, stop_list[0][3]])
-                        # 역주행
-                        if reverse_list:
-                            self.current_reverse.append([reverse_list[0][3], 0, 0])
-                            outbreak.append([2, reverse_list[0][3]])
+                            for i in outbreak_data:
+                                if last_class == 1 and i[2] == last_class and i[3] != last_zone:
+                                    stop_list.append(i)
+                                if last_class == 2 and i[2] == last_class and i[3] != last_zone:
+                                    reverse_list.append(i)
+                    else:
+                        for i in outbreak_data:
+                            if i[2] == 1:
+                                stop_list.append(i)
+                            if i[2] == 2:
+                                reverse_list.append(i)
+                    if stop_list:  # lastlist에 새로운 돌발 데이터가 담겨 있음 [time, ID, class, zone, Distlat, DistLong, distance] 형태
+                        self.current_stop = [stop_list[0][3], 0, 0]
+                        outbreak.append([1, stop_list[0][3]])
+                    else:
+                        self.current_stop = None
+                    # 역주행
+                    if reverse_list:
+                        self.current_reverse = [reverse_list[0][3], 0, 0]
+                        outbreak.append([2, reverse_list[0][3]])
                     self.last_outbreak_list = outbreak_data
-                    # else :
-                    #     self.last_outbreak_list = outbreak_data
-                        #
-                        # 맨 처음 db 에서 가져온 값 ,
+
         except Exception as e:
             print("err outbreak : ", e)
         return zone_data, outbreak

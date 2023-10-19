@@ -341,7 +341,7 @@ class main_function(QWidget):
     # t = threading.Thread(target=self.read_socket_msg, args=(), daemon=True)
     # self.read_thread.append(t)
     # if len(self.read_thread) > 2:
-    #     self.read_thread.pop(0)
+    #     self.read_thread.pop(0)0
     # self.read_thread[-1].start()
     def socket_accept_thread(self):    # 클라이언트 연결을 확인하기 위함
         try:
@@ -1084,68 +1084,80 @@ class main_function(QWidget):
             if self.client_connect:  # client와 연결되어 있고
                 if self.use_unexpected == 1:  # 돌발을 사용할 때 실행
                     # --------지정체 계산-------------------------------------------------------------------------------------
-                    # 디폴트 값 초기화 -> 필요 없어 보이는데
-                    # lane_cell_num = 10
-                    # if self.node_interval > 0:          # 셀 간격
-                    #     lane_cell_num = self.max_distance / self.node_interval  # 차선별 구역 수
-                    if self.client_connect:  # clien와 연결되어 있을 때
-                        sync_time = time.time()  # 현재 시간을 sync_time에 가져오고
-                        lane_data, outbreak = self.db.outbreak(congestion=self.congestion_criterion, sync_time=sync_time,
-                                                            # 돌발 상황 정보를 불러옴
-                                                            cycle=self.outbreak_cycle,
-                                                            host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                                                            password=self.db_pw, db=self.db_name)
-                        if outbreak is not None:  # congestion_list가 비어있지 않을 때
-                            outbreak_time = datetime.now()  # outbreak_time에 현재 시간을 할당
-                            self.db.insert_outbreak(outbreakdata_list=outbreak,  # 돌발의 시간, 위치, 속도 등의 정보를 데이터베이스에 기록
-                                                    input_time=outbreak_time,
-                                                    zone=self.zone_criterion,
-                                                    node_interval=self.node_interval,
-                                                    host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                                                    password=self.db_pw, db=self.db_name)
+                    sync_time = time.time()  # 현재 시간을 sync_time에 가져오고
+                    zone_data, outbreak = self.db.outbreak(congestion=self.congestion_criterion, sync_time=sync_time,
+                                                           # 돌발 상황 정보를 불러옴
+                                                           cycle=self.outbreak_cycle,
+                                                           host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                           password=self.db_pw, db=self.db_name)
+                    if outbreak is not None:  # congestion_list가 비어있지 않을 때
+                        outbreak_time = datetime.now()  # outbreak_time에 현재 시간을 할당
+                        self.db.insert_outbreak(outbreakdata_list=outbreak,  # 돌발의 시간, 위치, 속도 등의 정보를 데이터베이스에 기록
+                                                input_time=outbreak_time,
+                                                zone=self.zone_criterion,
+                                                node_interval=self.node_interval,
+                                                host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                password=self.db_pw, db=self.db_name)
 
-                        if lane_data:  # lane_data가 비어있지 않을 때
-                            self.status.get_data(congestion_data=lane_data)  # get_data에 congestion_data을 전달하여 호출
-                        # -------DB Table read------------------------------------------------------------------------------
-                        outbreakdata = self.db.get_outbreak(sync_time=sync_time,  # 돌발 상황 정보를 불러옴
-                                                            cycle=self.outbreak_cycle,
-                                                            host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                                                            password=self.db_pw, db=self.db_name)
-                        # ------outBreak send-------------------------------------------------------------------------------
+                    if zone_data:  # lane_data가 비어있지 않을 때
+                        self.status.get_data(congestion_data=zone_data)  # get_data에 congestion_data을 전달하여 호출
+                    # -------DB Table read------------------------------------------------------------------------------
+                    outbreakdata = self.db.get_outbreak(sync_time=sync_time,  # 돌발 상황 정보를 불러옴
+                                                        cycle=self.outbreak_cycle,
+                                                        host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                        password=self.db_pw, db=self.db_name)
+                    # ------outBreak send-------------------------------------------------------------------------------
 
-                        if outbreakdata:  # outbreakdata가 비어있지 않을 때
-                            # outbreak = [ [시간, 차선, 클래스, 거리, 상하행], [시간, 차선, 클래스, 거리, 상하행], ... ]
-                            self.last_list = []
-                            if self.last_send_outbreak is None:  # self.last_send_outbreak가 None일 때
-                                self.last_send_outbreak = []
-                                self.last_send_outbreak.append(outbreakdata)  # self.last_send_outbreak에 outbreakdata의 값을 추가
-                                self.last_list.append(outbreakdata)  # last_list에도 추가
-                            else:  # self.last_send_outbreak가 None이 아닐 때
-                                for data in outbreakdata:  # outbreakdata 리스트의 각 데이터를 data 변수에 할당하고, 이후의 코드 블록에서 해당 데이터를 처리함
-                                    duplicate = False  # 데이터 중복 여부를 확인하기 위한 변수, duplicate를 False로 초기화
-                                    for l_data in self.last_send_outbreak:  # 이전에 전송한 지정체를 저장하는 list를 l_data에 할당
-                                        if data[1:3] == l_data[1:3]:  # 차선과 클래스가 같을 때
-                                            if l_data[2] == 1:  # 이전 데이터의 클래스가 1일 때
-                                                l_data[0] = data[0]  # 현재 시간을 이전 시간에 할당함
-                                            duplicate = True  # 데이터 중복 여부 활성화
-                                            break
-                                        if data[2] == l_data[2] and data[2] == 4:
-                                            if data[4] == l_data[4]:
-                                                duplicate = True  # 데이터 중복 여부 활성화
-                                                break
-                                    if not duplicate:  # duplicate가 False일 때
-                                        self.last_list.append(data)  # 현재 데이터를 last_list에 추가
-                            self.out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
+                    if outbreakdata:  # 1019 서버에 돌발 전송이 안됨
+                        self.last_list = []
+                        self.last_list.append(outbreakdata)
+                        self.out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
+                        if self.last_list:
+                            location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
+                                                                 # 경도 위도 정보를 location에 저장
+                                                                 user=self.db_id, password=self.db_pw, db=self.db_name,
+                                                                 charset='utf8')
+                            calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
+                                                                 # 돌발 상황을 서버에 보내는 함수
+                                                                 self.controller_index, self.last_list, location)
+                            self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
 
-                            self.last_send_outbreak.extend(self.last_list)  # last_list 리스트에 저장된 데이터를 self.last_send_outbreak 리스트에 추가
-
-                            if self.last_list:                                                                                   # last_list가 비어있지 않을 때
-                                location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),               # 경도 위도 정보를 location에 저장
-                                                                     user=self.db_id, password=self.db_pw, db=self.db_name,
-                                                                     charset='utf8')
-                                calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,              # 돌발 상황을 서버에 보내는 함수
-                                                          self.controller_index, self.last_list, location)
-                                self.update_TX_Log(chr(0x19), [0])                                                          # TX_Log에 업데이트
+                        # # outbreak = [ [시간, 차선, 클래스, 거리, 상하행], [시간, 차선, 클래스, 거리, 상하행], ... ]
+                        # self.last_list = []
+                        # if self.last_send_outbreak is None:  # self.last_send_outbreak가 None일 때
+                        #     self.last_send_outbreak = []
+                        #     self.last_send_outbreak.append(outbreakdata)  # self.last_send_outbreak에 outbreakdata의 값을 추가
+                        #     self.last_list.append(outbreakdata)  # last_list에도 추가
+                        # else:  # self.last_send_outbreak가 None이 아닐 때
+                        #     for data in outbreakdata:  # outbreakdata 리스트의 각 데이터를 data 변수에 할당하고, 이후의 코드 블록에서 해당 데이터를 처리함
+                        #         duplicate = False  # 데이터 중복 여부를 확인하기 위한 변수, duplicate를 False로 초기화
+                        #         for l_data in self.last_send_outbreak:  # 이전에 전송한 지정체를 저장하는 list를 l_data에 할당
+                        #             if data[1:3] == l_data[1:3]:  # 차선과 클래스가 같을 때
+                        #                 if l_data[2] == 1:  # 이전 데이터의 클래스가 1일 때
+                        #                     l_data[0] = data[0]  # 현재 시간을 이전 시간에 할당함
+                        #                 duplicate = True  # 데이터 중복 여부 활성화
+                        #                 break
+                        #             if data[2] == l_data[2] and data[2] == 4:
+                        #                 if data[4] == l_data[4]:
+                        #                     duplicate = True  # 데이터 중복 여부 활성화
+                        #                     break
+                        #         if not duplicate:  # duplicate가 False일 때
+                        #             self.last_list.append(data)  # 현재 데이터를 last_list에 추가
+                        # self.out_time = datetime.fromtimestamp(
+                        #     sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
+                        #
+                        # self.last_send_outbreak.extend(
+                        #     self.last_list)  # last_list 리스트에 저장된 데이터를 self.last_send_outbreak 리스트에 추가
+                        #
+                        # if self.last_list:  # last_list가 비어있지 않을 때
+                        #     location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
+                        #                                          # 경도 위도 정보를 location에 저장
+                        #                                          user=self.db_id, password=self.db_pw, db=self.db_name,
+                        #                                          charset='utf8')
+                        #     calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
+                        #                                          # 돌발 상황을 서버에 보내는 함수
+                        #                                          self.controller_index, self.last_list, location)
+                        #     self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
         except Exception as e:
             print("read_outbreak_data error: ", e)
         return calc_msg
