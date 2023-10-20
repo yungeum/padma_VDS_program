@@ -363,8 +363,8 @@ class Socket_function:
         stringdata = ''
         for data in outbreak:
             dt = data[0]
-            daytime = chr(int(dt[:4])) + chr(int(dt[5:7])) + chr(int(dt[8:10])) + chr(int(dt[11:13])) + chr(int(dt[14:16])) + chr(int(dt[17:19]))
-            # daytime = chr(int(dt.strftime("%Y")[:2])) + chr(int(dt.strftime("%y"))) + chr(int(dt.strftime("%m"))) + chr(int(dt.strftime("%d"))) + chr(int(dt.strftime("%H"))) + chr(int(dt.strftime("%M"))) + chr(int(dt.strftime("%S")))
+            # daytime = chr(int(dt[:4])) + chr(int(dt[5:7])) + chr(int(dt[8:10])) + chr(int(dt[11:13])) + chr(int(dt[14:16])) + chr(int(dt[17:19]))
+            daytime = chr(int(dt.strftime("%Y")[:2])) + chr(int(dt.strftime("%y"))) + chr(int(dt.strftime("%m"))) + chr(int(dt.strftime("%d"))) + chr(int(dt.strftime("%H"))) + chr(int(dt.strftime("%M"))) + chr(int(dt.strftime("%S")))
             temp1 = data[2] & 0xFF
             temp2 = (data[2] >> 8) & 0xFF
             outbreak_class = chr(temp2) + chr(temp1)

@@ -21,6 +21,9 @@ class DB_function:
         self.current_stop = None
         self.current_reverse = None
 
+        self.last_congestion = None
+        self.now_congestion = 0
+
         # ptz_info = self.get_ptz_info(host='127.0.0.1', port=3315, user='root', password='hbrain0372!', db='hbrain_vds', charset='utf8')
         # print(self.get_occupancy_interval_data(lane=6, host='127.0.0.1', port=1433, user='sa', password='hbrain0372!', db='hbrain_vds', charset='utf8'))
         # print(self.get_congestion_data(congestion=43, cycle=30, zone=60, sync_time=time.time(), host='127.0.0.1', port=1433, user='sa', password='hbrain0372!', db='hbrain_vds', charset='utf8'))
@@ -548,12 +551,19 @@ class DB_function:
         return zone_data, congestion_list
 
     # 돌발
-    def outbreak(self, congestion=None, sync_time=None, cycle=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def outbreak(self, congestion=None, sync_time=None, cycle=None, host=None, port=None, user=None, password=None,
+                 db=None, charset='utf8'):
         outbreak = []
         zone_data = []
         stop_list = []
         reverse_list = []
 
+        congestion_status = []
+        zone = 0
+        lane = 0
+        distlat = 0.0
+        distlong = 0
+        distance = 0
         try:
             if sync_time is None and cycle is None:
                 print('nack')
@@ -561,13 +571,17 @@ class DB_function:
                 temp = time.localtime(sync_time - cycle)
                 data_start = time.strftime("%Y-%m-%d %H:%M:%S", temp)
                 now_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(sync_time))
-                zone_data = self.calc.congestion_data(data_start=data_start, host=host, port=port, user=user, password=password, db=db, charset=charset)
-                outbreak_data = self.calc.outbreak_data(data_start=data_start, now_time=now_time, host=host, port=port, user=user, password=password, db=db, charset=charset)
+                zone_data = self.calc.congestion_data(data_start=data_start, host=host, port=port, user=user,
+                                                      password=password, db=db, charset=charset)
+                outbreak_data = self.calc.outbreak_data(data_start=data_start, now_time=now_time, host=host, port=port,
+                                                        user=user, password=password, db=db, charset=charset)
 
+                left_congestion_check = 0
+                right_congestion_check = 0
                 # 지정체
-                if zone_data:
-                    for i, lane_data in enumerate(zone_data):
-                        for j, a_velocity in enumerate(lane_data):
+                if zone_data is not None:
+                    for i, lane_data in enumerate(zone_data):  # [ [0,15,86,40,40,50,60] , [2] , [3] , [4]    ]
+                        for j, a_velocity in enumerate(lane_data):  # [0,15,86,40,40,50,60]
                             # i+1 = 차선. j = 구역
                             current_lane = i + 1
                             if current_lane <= 3:
@@ -575,27 +589,60 @@ class DB_function:
                             elif current_lane >= 4:
                                 current_updown = 1
 
-                            if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만일 경우(30km미만)
-                                if not any(item[1] == current_updown for item in self.last_congestion_list):
-                                    now = datetime.now()
-                                    nowtime = now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                                    outbreak.append([nowtime, 0, 4, current_updown, 0,0,0]) # [time, ID, class, zone, Distlat, DistLong, distance]
-                                    self.last_congestion_list.append([current_lane, current_updown, j])
-                                    print("지정체 발생 : ", self.last_congestion_list)
-                            elif a_velocity >= 50 and self.last_congestion_list:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
-                                if any(item[1] == current_updown for item in self.last_congestion_list):
-                                    self.last_congestion_list = [item for item in self.last_congestion_list if item[2] != j or item[1] != current_updown]
+                            if a_velocity < congestion and a_velocity != 0:
+                                if current_updown == 0:
+                                    left_congestion_check = 1
+                                elif current_updown == 1:
+                                    right_congestion_check = 1
+                                zone = j + 1
+                                lane = current_lane
 
-                    if self.last_congestion_list:
-                        if len(self.last_congestion_list) == 1:
-                            if any(item[1] == 0 for item in self.last_congestion_list):
-                                self.current_congestion = [1, 1, 0]
-                            else:
-                                self.current_congestion = [2, 2, 0]
-                        if len(self.last_congestion_list) == 2:
-                            self.current_congestion = [3, 3, 0]
-                    else:
-                        self.current_congestion = None
+                #현재 지정체 상황 저장.
+                if left_congestion_check == 0 and right_congestion_check == 0: # 지정체 없음
+                    self.now_congestion = 0
+                    self.current_congestion = None
+
+                elif left_congestion_check == 1 and right_congestion_check == 0: # 상행 지정체
+                    self.now_congestion = 1
+                    self.current_congestion = [1, 1, 0]
+
+                elif left_congestion_check == 0 and right_congestion_check == 1: # 하행 지정체
+                    self.now_congestion = 2
+                    self.current_congestion = [2, 2, 0]
+
+                elif left_congestion_check == 1 and right_congestion_check == 1: # 양측 지정체
+                    self.now_congestion = 3
+                    self.current_congestion = [3, 3, 0]
+
+                # insert 전 거리 계산.
+                if lane == 1:
+                    distlat = 18
+                elif lane == 2:
+                    distlat = 14.7
+                elif lane == 3:
+                    distlat = 11.2
+                elif lane == 4:
+                    distlat = 7.7
+                elif lane == 5:
+                    distlat = 4.2
+                elif lane == 6:
+                    distlat = 1.7
+
+                distlong = zone * 25
+                distance = math.sqrt(distlat**2 + distlong**2)
+
+                #지정체 중복 검사 후 저장.
+                if self.last_congestion != 0:
+                    if self.last_congestion == self.now_congestion:
+                        self.current_congestion = []
+                    elif self.last_congestion != self.now_congestion:
+                        outbreak.append([now_time, 0, 4, zone, distlat, distlong, distance])
+                        congestion_status = self.current_congestion
+                elif self.last_congestion is None:
+                    outbreak.append([now_time, 0, 4, zone, distlat, distlong, distance])
+                    congestion_status = self.current_congestion # [3,3,0] 저장.
+
+                self.last_congestion = self.now_congestion # 현재 지정체 저장.
 
                 if outbreak_data:
                     if self.last_outbreak_list:

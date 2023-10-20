@@ -1092,45 +1092,43 @@ class main_function(QWidget):
                                                            password=self.db_pw, db=self.db_name)
 
                     if outbreak:  # congestion_list가 비어있지 않을 때
+                        # self.out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
+                        # location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
+                        #                                      # 경도 위도 정보를 location에 저장
+                        #                                      user=self.db_id, password=self.db_pw, db=self.db_name,
+                        #                                      charset='utf8')
+                        # calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
+                        #                                      # 돌발 상황을 서버에 보내는 함수
+                        #                                      self.controller_index, outbreak, location)
+                        # self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
+                        self.db.insert_outbreak(outbreakdata_list=outbreak,  # 돌발의 시간, 위치, 속도 등의 정보를 데이터베이스에 기록
+                                                zone=self.zone_criterion,
+                                                node_interval=self.node_interval,
+                                                host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                password=self.db_pw, db=self.db_name)
+
+                    if zone_data:  # lane_data가 비어있지 않을 때
+                        self.status.get_data(congestion_data=zone_data)  # get_data에 congestion_data을 전달하여 호출
+                    # -------DB Table read------------------------------------------------------------------------------
+                    outbreakdata = self.db.get_outbreak(sync_time=sync_time,  # 돌발 상황 정보를 불러옴
+                                                        cycle=self.outbreak_cycle,
+                                                        host=self.db_ip, port=int(self.db_port), user=self.db_id,
+                                                        password=self.db_pw, db=self.db_name)
+                    # ------outBreak send-------------------------------------------------------------------------------
+
+                    if outbreakdata:  # 1019 서버에 돌발 전송이 안됨
+                        self.last_list = []
+                        self.last_list.extend(outbreakdata)
                         self.out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
-                        location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
-                                                             # 경도 위도 정보를 location에 저장
-                                                             user=self.db_id, password=self.db_pw, db=self.db_name,
-                                                             charset='utf8')
-                        calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
-                                                             # 돌발 상황을 서버에 보내는 함수
-                                                             self.controller_index, outbreak, location)
-                        self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
-
-
-                    #     self.db.insert_outbreak(outbreakdata_list=outbreak,  # 돌발의 시간, 위치, 속도 등의 정보를 데이터베이스에 기록
-                    #                             zone=self.zone_criterion,
-                    #                             node_interval=self.node_interval,
-                    #                             host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                    #                             password=self.db_pw, db=self.db_name)
-                    #
-                    # if zone_data:  # lane_data가 비어있지 않을 때
-                    #     self.status.get_data(congestion_data=zone_data)  # get_data에 congestion_data을 전달하여 호출
-                    # # -------DB Table read------------------------------------------------------------------------------
-                    # outbreakdata = self.db.get_outbreak(sync_time=sync_time,  # 돌발 상황 정보를 불러옴
-                    #                                     cycle=self.outbreak_cycle,
-                    #                                     host=self.db_ip, port=int(self.db_port), user=self.db_id,
-                    #                                     password=self.db_pw, db=self.db_name)
-                    # # ------outBreak send-------------------------------------------------------------------------------
-                    #
-                    # if outbreakdata:  # 1019 서버에 돌발 전송이 안됨
-                    #     self.last_list = []
-                    #     self.last_list.extend(outbreakdata)
-                    #     self.out_time = datetime.fromtimestamp(sync_time - self.outbreak_cycle)  # 현재 시간에서 65초를 빼서 out_time에 저장
-                    #     if self.last_list:
-                    #         location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
-                    #                                              # 경도 위도 정보를 location에 저장
-                    #                                              user=self.db_id, password=self.db_pw, db=self.db_name,
-                    #                                              charset='utf8')
-                    #         calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
-                    #                                              # 돌발 상황을 서버에 보내는 함수
-                    #                                              self.controller_index, self.last_list, location)
-                    #         self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
+                        if self.last_list:
+                            location = self.db.get_location_data(host=self.db_ip, port=int(self.db_port),
+                                                                 # 경도 위도 정보를 location에 저장
+                                                                 user=self.db_id, password=self.db_pw, db=self.db_name,
+                                                                 charset='utf8')
+                            calc_msg = self.sock.send_19_res_msg(self.local_ip, self.center_ip, self.controller_type,
+                                                                 # 돌발 상황을 서버에 보내는 함수
+                                                                 self.controller_index, self.last_list, location)
+                            self.update_TX_Log(chr(0x19), [0])  # TX_Log에 업데이트
 
         except Exception as e:
             print("read_outbreak_data error: ", e)
