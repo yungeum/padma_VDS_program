@@ -317,7 +317,7 @@ class CALC_function:
                 cur = db_connect.cursor()
                 datett = str(self.last_data_time)
                 if self.last_data_time is not None:
-                    sql = "SELECT * FROM outbreak WHERE time>'" + datett + "' ORDER BY Zone ASC"
+                    sql = "SELECT * FROM outbreak WHERE time>'" + datett + "' ORDER BY Zone ASC" # 1019 class가 1이랑 2일때만 가져오게
                 else:
                     sql = "SELECT * FROM outbreak WHERE time>'" + now_time + "' ORDER BY Zone ASC"
                 cur.execute(sql)
@@ -326,7 +326,8 @@ class CALC_function:
                 data_list = []
 
                 for data in result:
-                    data_list.append(data)
+                    formatted_datetime = data[0].strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    data_list.append([formatted_datetime] + list(data[1:]))
                 if result:
                     self.last_data_time = result[-1][0]
 

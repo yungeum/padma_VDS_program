@@ -572,28 +572,32 @@ class DB_function:
                             current_lane = i + 1
                             if current_lane <= 3:
                                 current_updown = 0
-                            if current_lane >= 4:
+                            elif current_lane >= 4:
                                 current_updown = 1
+
                             if a_velocity < congestion and a_velocity != 0:  # 기준 속도 미만일 경우(30km미만)
                                 if not any(item[1] == current_updown for item in self.last_congestion_list):
-                                    outbreak.append([4, current_updown])
+                                    now = datetime.now()
+                                    nowtime = now.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                                    outbreak.append([nowtime, 0, 4, current_updown, 0,0,0]) # [time, ID, class, zone, Distlat, DistLong, distance]
                                     self.last_congestion_list.append([current_lane, current_updown, j])
                                     print("지정체 발생 : ", self.last_congestion_list)
-                            if a_velocity >= 50 and self.last_congestion_list:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
+                            elif a_velocity >= 50 and self.last_congestion_list:  # 지정체 종료 속도이면서 이젠에 보낸 데이터가 있을 경우(50km이상)
                                 if any(item[1] == current_updown for item in self.last_congestion_list):
                                     self.last_congestion_list = [item for item in self.last_congestion_list if item[2] != j or item[1] != current_updown]
-                            if self.last_congestion_list:
-                                if len(self.last_congestion_list) == 1:
-                                    if any(item[1] == 0 for item in self.last_congestion_list):
-                                        self.current_congestion = [j, 1, 0]
-                                    else:
-                                        self.current_congestion = [j, 2, 0]
-                                if len(self.last_congestion_list) == 2:
-                                    self.current_congestion = [j, 3, 0]
-                            else:
-                                self.current_congestion = None
 
-                if outbreak_data:   #1019 last_outbreak_list 수정 필요 current_stop, current_reverse 사용해야함
+                    if self.last_congestion_list:
+                        if len(self.last_congestion_list) == 1:
+                            if any(item[1] == 0 for item in self.last_congestion_list):
+                                self.current_congestion = [1, 1, 0]
+                            else:
+                                self.current_congestion = [2, 2, 0]
+                        if len(self.last_congestion_list) == 2:
+                            self.current_congestion = [3, 3, 0]
+                    else:
+                        self.current_congestion = None
+
+                if outbreak_data:
                     if self.last_outbreak_list:
                         for last_data in self.last_outbreak_list:
                             last_class = last_data[2]
@@ -607,18 +611,21 @@ class DB_function:
                         for i in outbreak_data:
                             if i[2] == 1:
                                 stop_list.append(i)
+                                self.last_outbreak_list.append(i)
                             if i[2] == 2:
                                 reverse_list.append(i)
+                                self.last_outbreak_list.append(i)
+
                     if stop_list:  # lastlist에 새로운 돌발 데이터가 담겨 있음 [time, ID, class, zone, Distlat, DistLong, distance] 형태
                         self.current_stop = [stop_list[0][3], 0, 0]
-                        outbreak.append([1, stop_list[0][3]])
+                        outbreak.extend(stop_list)
                     else:
                         self.current_stop = None
+
                     # 역주행
                     if reverse_list:
                         self.current_reverse = [reverse_list[0][3], 0, 0]
-                        outbreak.append([2, reverse_list[0][3]])
-                    self.last_outbreak_list = outbreak_data
+                        outbreak.extend(reverse_list)
 
         except Exception as e:
             print("err outbreak : ", e)
@@ -913,29 +920,25 @@ class DB_function:
         except Exception as e:
             print("error set_congestion_info : ", e)
 
-    def insert_outbreak(self, outbreakdata_list=[], input_time=None, node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
+    def insert_outbreak(self, outbreakdata_list=[], node_interval=None, zone=None, host=None, port=None, user=None, password=None, db=None, charset='utf8'):
         # congestion_list = 지정체 구역 = [차선 (1부터), 구역 (0부터)]
         # input_time = 지정체 발생 시간
         # zone = 구역 간격
         # zone_num = 차선별 구역 수
         try:
-            if outbreakdata_list == '' or zone is None or input_time is None or node_interval is None:
+            if outbreakdata_list == '' or zone is None or node_interval is None: # outbreakdata_list = [time, ID, class, zone, Distlat, DistLong, distance]
                 print("parameter in none")
             else:
                 # db_connect = pymssql.connect(server=host, port=port, user=user, password=password, database=db, charset=charset)
                 db_connect = pymysql.connect(host=host, port=port, user=user, password=password, db=db, charset=charset, autocommit=True)
                 cur = db_connect.cursor()
 
-                # outbreak_time = time.strftime("%Y-%m-%d %H:%M:%S.%f", time.localtime(input_time))[:-3]
-                outbreak_time = input_time.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                 print("outbreakdata_list: ", outbreakdata_list)
                 for i in range(len(outbreakdata_list)):
-                    #congestion_list = [차선 , 속도 ] 25 *  (50보다 작은) + 3
-                    total_distlong = round(zone * outbreakdata_list[i][1] + zone/2, 1)
-                    sql = "INSERT INTO outbreak VALUES('" + outbreak_time + "', " + str(i) + ", " + str(outbreakdata_list[i][0]) + ", " + str(outbreakdata_list[i][1]) + \
-                          ", NULL, " + str(total_distlong) + ", " + str(total_distlong) + ");"
-                    # print(sql)
-                    cur.execute(sql)
+                    if outbreakdata_list[i][2] == 4:
+                        outbreakdata = outbreakdata_list[i]
+                        sql = "INSERT INTO outbreak VALUES(%s, %s, %s, %s, %s, %s, %s)"
+                        cur.execute(sql, outbreakdata)
 
                 db_connect.close()
         except Exception as e:
